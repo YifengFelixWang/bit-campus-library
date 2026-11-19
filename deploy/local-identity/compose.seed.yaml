@@ -1,0 +1,5 @@
+services:
+  identity-service:
+    environment:
+      IAM_SEED_READER01_PASSWORD: ${IAM_SEED_READER01_PASSWORD:?Set the reader01 application password}
+      IAM_SEED_READER02_PASSWORD: ${IAM_SEED_READER02_PASSWORD:?Set the reader02 application password}

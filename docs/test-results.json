@@ -1,0 +1,20 @@
+{
+  "build": "PASS",
+  "database_integration": "NOT_RUN_DOCKER_UNAVAILABLE",
+  "suites": [
+    {
+      "name": "edu.library.ApplicationSmokeTest",
+      "tests": "3",
+      "errors": "0",
+      "failures": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "edu.library.LoanControllerTest",
+      "tests": "7",
+      "errors": "0",
+      "failures": "0",
+      "skipped": "0"
+    }
+  ]
+}

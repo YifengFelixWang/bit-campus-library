@@ -1,0 +1,24 @@
+name: campus-library-identity
+
+services:
+  identity-service:
+    build: ../../services/identity-service
+    ports:
+      - "127.0.0.1:8081:8081"
+    environment:
+      PORT: "8081"
+      IAM_DB_URL: ${LIBRARY_JDBC_URL:-jdbc:opengauss://host.docker.internal:15432/library}
+      IAM_DB_PASSWORD: ${IAM_DB_PASSWORD:?Set IAM_DB_PASSWORD in .env}
+      LOAN_SERVICE_URL: http://loan-service:8083
+
+  loan-service:
+    build: ../../services/loan-service
+    ports:
+      - "127.0.0.1:8083:8083"
+    environment:
+      PORT: "8083"
+      IDENTITY_URL: http://identity-service:8081/users/me
+      LOAN_DB_URL: ${LIBRARY_JDBC_URL:-jdbc:opengauss://host.docker.internal:15432/library}
+      LOAN_DB_READER01_PASSWORD: ${LOAN_DB_READER01_PASSWORD:?Set LOAN_DB_READER01_PASSWORD in .env}
+      LOAN_DB_READER02_PASSWORD: ${LOAN_DB_READER02_PASSWORD:?Set LOAN_DB_READER02_PASSWORD in .env}
+      LOAN_DB_LIBRARIAN01_PASSWORD: ${LOAN_DB_LIBRARIAN01_PASSWORD:?Set LOAN_DB_LIBRARIAN01_PASSWORD in .env}
