@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.library.catalog.query.BookQueryMapper">
+
+    <!--
+      说明：这个文件就是「前端条件 → SQL」的组装车间。
+      三条纪律：
+        1. 只有值用 #{}（预编译参数），表名/列名一律不来自请求；
+        2. ORDER BY 的列用 ${}，但取值只可能来自 BookSortField 枚举产出的常量；
+        3. 条件用 <if> 动态拼接，所有分支都必须能走索引或至少不退化。
+    -->
+
+    <!-- 一次 JOIN 取全：book + category + author 聚合 + 最新封面 -->
+    <sql id="bookColumns">
+        b.book_id,
+        b.title,
+        b.isbn,
+        b.category_id,
+        c.category_name,
+        (SELECT string_agg(a.author_name, ';' ORDER BY ba2.author_id)
+           FROM catalog.book_author ba2
+           JOIN catalog.author a ON a.author_id = ba2.author_id
+          WHERE ba2.book_id = b.book_id)                              AS author_names,
+        b.publisher,
+        b.publish_year,
+        b.summary,
+        b.total_copies,
+        (SELECT m.file_url
+           FROM catalog.media m
+          WHERE m.book_id = b.book_id
+            AND m.deleted = false
+          ORDER BY m.media_id DESC
+          LIMIT 1)                                                    AS cover_url,
+        CASE WHEN b.deleted THEN 'OFF_SHELF' ELSE 'ON_SHELF' END      AS shelf_status,
+        b.updated_at
+    </sql>
+
+    <sql id="bookFrom">
+        FROM catalog.book b
+        JOIN catalog.category c ON c.category_id = b.category_id
+    </sql>
+
+    <!-- 动态条件：没传就不拼，拼了就一定是参数绑定 -->
+    <sql id="bookWhere">
+        <where>
+            <!-- 默认只看在架书目；显式传 status 时才按上架状态过滤 -->
+            <choose>
+                <when test="q.status != null">
+                    AND b.deleted = (#{q.status} = 'OFF_SHELF')
+                </when>
+                <otherwise>
+                    AND b.deleted = false
+                </otherwise>
+            </choose>
+            <if test="q.categoryId != null">
+                AND b.category_id = #{q.categoryId}
+            </if>
+            <if test="q.keyword != null">
+                AND (
+                     b.title     ILIKE '%' || #{q.keyword} || '%'
+                  OR b.isbn      ILIKE '%' || #{q.keyword} || '%'
+                  OR b.publisher ILIKE '%' || #{q.keyword} || '%'
+                  OR EXISTS (SELECT 1
+                               FROM catalog.book_author ba3
+                               JOIN catalog.author a3 ON a3.author_id = ba3.author_id
+                              WHERE ba3.book_id = b.book_id
+                                AND a3.author_name ILIKE '%' || #{q.keyword} || '%')
+                )
+            </if>
+        </where>
+    </sql>
+
+    <!-- ============ 通道 A：后端组装 SQL ============ -->
+    <select id="searchBySql" resultType="edu.library.catalog.query.BookRow">
+        SELECT
+        <include refid="bookColumns"/>
+        <include refid="bookFrom"/>
+        <include refid="bookWhere"/>
+        ORDER BY ${q.sortColumn} ${q.orderDirection}, b.book_id DESC
+        LIMIT #{q.size} OFFSET #{q.offset}
+    </select>
+
+    <select id="countBySql" resultType="long">
+        SELECT count(*)
+        <include refid="bookFrom"/>
+        <include refid="bookWhere"/>
+    </select>
+
+    <!-- ============ 通道 B：存储过程传参 ============
+         jdbcType 必须显式写：openGauss/PG 驱动在参数为 null 且类型未知时会报
+         「could not determine data type of parameter $1」 -->
+    <select id="searchByProc" resultType="edu.library.catalog.query.BookRow">
+        SELECT *
+          FROM catalog.fn_search_books(
+                #{q.keyword, jdbcType=VARCHAR},
+                #{q.categoryId, jdbcType=BIGINT},
+                #{q.status, jdbcType=VARCHAR},
+                #{q.sortBy, jdbcType=VARCHAR},
+                #{q.orderDirection, jdbcType=VARCHAR},
+                #{q.page, jdbcType=INTEGER},
+                #{q.size, jdbcType=INTEGER})
+    </select>
+
+    <select id="countByProc" resultType="long">
+        SELECT catalog.fn_count_books(
+                #{q.keyword, jdbcType=VARCHAR},
+                #{q.categoryId, jdbcType=BIGINT},
+                #{q.status, jdbcType=VARCHAR})
+    </select>
+
+    <!-- ============ 通道 C：多条件联动（「全部图书」页的多条件表单） ============
+         每个条件独立一个 <if>，彼此 AND；没传就不拼，拼了就一定是预编译参数。
+         作者条件走 EXISTS，避免 JOIN 后一本书多作者导致行重复（那会让分页数字对不上）。 -->
+    <sql id="multiWhere">
+        <where>
+            <!-- status 为 null 表示上下架都要；否则按 deleted 过滤 -->
+            <if test="q.status != null">
+                AND b.deleted = (#{q.status} = 'OFF_SHELF')
+            </if>
+            <if test="q.categoryId != null">
+                AND b.category_id = #{q.categoryId}
+            </if>
+            <if test="q.title != null">
+                AND b.title ILIKE '%' || #{q.title} || '%'
+            </if>
+            <if test="q.isbn != null">
+                AND b.isbn ILIKE '%' || #{q.isbn} || '%'
+            </if>
+            <if test="q.publisher != null">
+                AND b.publisher ILIKE '%' || #{q.publisher} || '%'
+            </if>
+            <if test="q.author != null">
+                AND EXISTS (SELECT 1
+                              FROM catalog.book_author bam
+                              JOIN catalog.author am ON am.author_id = bam.author_id
+                             WHERE bam.book_id = b.book_id
+                               AND am.author_name ILIKE '%' || #{q.author} || '%')
+            </if>
+            <if test="q.yearFrom != null">
+                AND b.publish_year &gt;= #{q.yearFrom}
+            </if>
+            <if test="q.yearTo != null">
+                AND b.publish_year &lt;= #{q.yearTo}
+            </if>
+        </where>
+    </sql>
+
+    <select id="searchMulti" resultType="edu.library.catalog.query.BookRow">
+        SELECT
+        <include refid="bookColumns"/>
+        <include refid="bookFrom"/>
+        <include refid="multiWhere"/>
+        ORDER BY ${q.sortColumn} ${q.orderDirection}, b.book_id DESC
+        LIMIT #{q.size} OFFSET #{q.offset}
+    </select>
+
+    <select id="countMulti" resultType="long">
+        SELECT count(*)
+        <include refid="bookFrom"/>
+        <include refid="multiWhere"/>
+    </select>
+
+</mapper>

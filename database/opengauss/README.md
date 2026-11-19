@@ -34,6 +34,8 @@
 
    也可在 Windows 工程里复制本目录的 `env.example` 为本机 `.env`，填入 `LIBRARY_LOCAL_PASSWORD` 供 A、C 的本地启动脚本使用。按 [两个读者的登录与数据库身份](../../docs/读者登录联调.md) 启动服务，首次使用 `-InitReaders` 设置网页密码。共享快照中保留了 A 初始化时识别的 `REPLACE_WITH_HASH` 种子值。
 
+整合 B 的书屋页面还需要书目扩展及书评、公告表，执行顺序见[工程根目录 README](../../README.md)。
+
 ## D 维护的源文件
 
 | 内容 | 位置 |

@@ -26,7 +26,7 @@ def main():
     literal = "E'" + password.replace("\\", "\\\\").replace("'", "''") + "'"
     sql = "BEGIN;\n" + template.replace(":runtime_password", literal) + "\nCOMMIT;\n"
     command = ["gsql", "-X", "-v", "ON_ERROR_STOP=1", "-p", str(args.port),
-               "-U", args.user, "-d", "postgres", "-f", "-"]
+               "-U", args.user, "-d", "postgres"]
     if args.host:
         command.extend(["-h", args.host])
     try:

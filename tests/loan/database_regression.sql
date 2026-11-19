@@ -1,8 +1,7 @@
--- Run as initialization user in D's freshly imported disposable test database.
+-- Connect as db_loan_reader01 in D's disposable development database.
 -- All test changes roll back. Requires C 002 and 004.
 \set ON_ERROR_STOP on
 BEGIN;
-SET SESSION AUTHORIZATION db_loan_reader01;
 DO $$
 DECLARE n integer; ts timestamp;
 BEGIN
@@ -38,7 +37,6 @@ BEGIN
 END;
 $$;
 ROLLBACK;
-RESET SESSION AUTHORIZATION;
 DO $$ BEGIN
  IF EXISTS(SELECT 1 FROM loan.loan_record WHERE loan_id=900000001)
  OR EXISTS(SELECT 1 FROM loan.loan_audit WHERE loan_id=900000001)

@@ -1,0 +1,45 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: catalog-service
+  # 数据源不再由 Spring Boot 自动配置：见 DataSourceConfig（三个账号 + 按角色路由）
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+    default-fetch-size: 50
+
+catalog:
+  # 身份服务地址：由 A 校验 Bearer 令牌和角色
+  identity:
+    url: ${IDENTITY_URL:http://127.0.0.1:8081/users/me}
+
+  # 两个数据库账号，按应用角色自动选择（严格按 D 的《03-账号对照.md》）
+  # 读者 → reader01（只读）／馆员 → librarian01（增改）
+  # 数据分析员与运维管理员不访问本服务数据，因此没有对应连接池
+  db:
+    url: ${CATALOG_DB_URL:jdbc:opengauss://127.0.0.1:15432/library}
+    reader:
+      username: ${CATALOG_DB_READER01_USER:db_catalog_reader01}
+      password: ${CATALOG_DB_READER01_PASSWORD}
+    reader02:
+      password: ${CATALOG_DB_READER02_PASSWORD}
+    librarian:
+      username: ${CATALOG_DB_LIBRARIAN01_USER:db_catalog_librarian01}
+      password: ${CATALOG_DB_LIBRARIAN01_PASSWORD}
+
+  search:
+    # sql = 后端动态组装 SQL（默认）；proc = 调 catalog.fn_search_books 存储过程
+    mode: ${SEARCH_MODE:sql}
+    max-size: 100
+
+  upload:
+    # 封面落盘目录，需与前端静态目录 / Nginx 的 /covers/ 映射保持一致
+    cover-dir: ${CATALOG_COVER_DIR:web/covers}
+
+logging:
+  level:
+    edu.library.catalog: INFO

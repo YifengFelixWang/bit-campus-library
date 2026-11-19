@@ -1,0 +1,22 @@
+services:
+  catalog-service:
+    build: ../../services/catalog-service
+    environment:
+      IDENTITY_URL: http://identity-service:8081/users/me
+      CATALOG_DB_URL: ${LIBRARY_JDBC_URL:-jdbc:opengauss://host.docker.internal:15432/library}
+      CATALOG_DB_READER01_PASSWORD: ${CATALOG_DB_READER01_PASSWORD:?Set the reader01 DB password}
+      CATALOG_DB_READER02_PASSWORD: ${CATALOG_DB_READER02_PASSWORD:?Set the reader02 DB password}
+      CATALOG_DB_LIBRARIAN01_PASSWORD: ${CATALOG_DB_LIBRARIAN01_PASSWORD:?Set the librarian DB password}
+    volumes:
+      - ../../web/covers:/app/web/covers
+  web:
+    image: nginx:alpine
+    ports:
+      - "127.0.0.1:8080:80"
+    depends_on:
+      - catalog-service
+      - identity-service
+      - loan-service
+    volumes:
+      - ../../web:/usr/share/nginx/html:ro
+      - ../nginx.conf:/etc/nginx/conf.d/default.conf:ro

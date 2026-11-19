@@ -1,0 +1,695 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BIT书屋 · 图书借阅管理系统设计文档</title>
+  <style>
+    :root {
+      --paper: #f6f0e5;
+      --surface: #fffdf8;
+      --ink: #2b2119;
+      --soft: #4d3d2d;
+      --muted: #7c6b56;
+      --line: #e6dac6;
+      --line-strong: #d2c0a3;
+      --primary: #8f4a2a;
+      --accent: #c9603f;
+      --green: #3a7350;
+      --amber: #a97718;
+      --danger: #b3453a;
+      --serif: "Iowan Old Style", "Noto Serif SC", "Songti SC", "STSong", "SimSun", ui-serif, Georgia, serif;
+      --sans: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0; font-family: var(--sans); color: var(--ink); line-height: 1.75;
+      background:
+        radial-gradient(900px 420px at 88% -8%, rgba(201, 96, 63, .10), transparent 60%),
+        var(--paper);
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--primary); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    h1, h2, h3, h4 { margin: 0; font-family: var(--serif); line-height: 1.35; }
+    p { margin: 0 0 12px; }
+    ul, ol { margin: 8px 0 14px; padding-left: 22px; }
+    li { margin: 5px 0; }
+    table { border-collapse: collapse; width: 100%; font-size: 13px; }
+    th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f4ebdc; font-weight: 600; }
+    code { font-family: var(--mono); font-size: .88em; background: #f1e8d9; padding: 1px 5px; border-radius: 4px; }
+    pre { margin: 10px 0 16px; padding: 14px 16px; background: #1e242b; color: #d8e1ea; border-radius: 10px; overflow: auto; font-family: var(--mono); font-size: 11.5px; line-height: 1.65; }
+    pre code { background: none; padding: 0; color: inherit; }
+    .doc-header {
+      position: sticky; top: 0; z-index: 20; backdrop-filter: blur(12px);
+      background: rgba(246, 240, 229, .9); border-bottom: 1px solid var(--line);
+    }
+    .doc-header-inner { width: min(1200px, calc(100% - 40px)); margin: 0 auto; display: flex; align-items: center; gap: 16px; min-height: 64px; }
+    .doc-brand { display: flex; align-items: center; gap: 10px; font-family: var(--serif); font-weight: 700; letter-spacing: .03em; }
+    .doc-brand span.mark {
+      width: 34px; height: 34px; display: grid; place-items: center; border-radius: 9px;
+      background: linear-gradient(145deg, #b7643a, #8f4a2a); color: #fff; font-size: 15px;
+    }
+    .doc-brand small { display: block; font-family: var(--sans); font-size: 9px; letter-spacing: .22em; color: var(--muted); }
+    .doc-header-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+    .dbtn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line-strong); background: #fff; color: var(--soft); font-size: 12.5px; cursor: pointer; }
+    .dbtn:hover { border-color: var(--primary); color: var(--primary); text-decoration: none; }
+    .dbtn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .dbtn.primary:hover { background: #a25a35; color: #fff; }
+    .doc-layout { width: min(1200px, calc(100% - 40px)); margin: 28px auto 64px; display: grid; grid-template-columns: 236px minmax(0, 1fr); gap: 26px; align-items: start; }
+    .toc { position: sticky; top: 88px; padding: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; font-size: 12.5px; }
+    .toc strong { display: block; font-family: var(--serif); font-size: 15px; margin-bottom: 8px; }
+    .toc a { display: block; padding: 4px 0 4px 8px; color: var(--muted); border-left: 2px solid transparent; }
+    .toc a:hover { color: var(--primary); border-left-color: var(--accent); text-decoration: none; }
+    .toc .sub { padding-left: 18px; font-size: 11.5px; }
+    .paper { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 46px 52px 56px; box-shadow: 0 18px 48px rgba(60, 42, 26, .08); }
+    .cover { padding-bottom: 28px; border-bottom: 1px solid var(--line); margin-bottom: 30px; }
+    .cover .kicker { font-size: 11px; letter-spacing: .18em; color: var(--accent); font-weight: 700; }
+    .cover h1 { font-size: clamp(30px, 4vw, 42px); margin: 8px 0 10px; }
+    .cover .subtitle { font-size: 15px; color: var(--muted); max-width: 60ch; }
+    .cover-meta { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 24px; }
+    .cover-meta div { padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fbf6ec; font-size: 12px; color: var(--muted); }
+    .cover-meta b { display: block; color: var(--ink); font-size: 13px; margin-top: 2px; }
+    h2 { font-size: 25px; margin: 36px 0 14px; padding-bottom: 8px; border-bottom: 1px solid var(--line); scroll-margin-top: 80px; }
+    h3 { font-size: 18px; margin: 26px 0 10px; color: var(--soft); scroll-margin-top: 80px; }
+    h4 { font-size: 15px; margin: 18px 0 8px; }
+    .lead { font-size: 14.5px; color: var(--soft); }
+    .callout { margin: 16px 0; padding: 13px 16px; border-left: 4px solid var(--accent); border-radius: 0 10px 10px 0; background: #fbf2e9; font-size: 13px; color: var(--soft); }
+    .callout.green { border-left-color: var(--green); background: #eff6f0; }
+    .callout.amber { border-left-color: var(--amber); background: #faf3e1; }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .card { padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: #fdf9f1; }
+    .card h4 { margin-top: 0; }
+    .tag { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #f0e4d2; color: #7c5a2a; font-size: 10.5px; font-weight: 600; margin-right: 4px; }
+    .tag.green { background: #e3efe6; color: var(--green); }
+    .tag.blue { background: #e5edf5; color: #356a94; }
+    .tag.red { background: #f8e6e2; color: var(--danger); }
+    .tag.purple { background: #eee7f6; color: #6a4a96; }
+    .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 14px 0; }
+    .flow span { padding: 7px 10px; border: 1px solid var(--line-strong); border-radius: 8px; background: #fff; font-size: 12px; }
+    .flow i { color: var(--line-strong); font-style: normal; }
+    .er-wrap { border: 1px solid var(--line); border-radius: 12px; background: #fffdf9; padding: 8px; overflow-x: auto; }
+    .er-wrap svg { display: block; width: 100%; min-width: 900px; height: auto; }
+    .er-note { font-size: 12px; color: var(--muted); margin-top: 8px; }
+    .toc-note { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 11px; color: var(--muted); }
+    .footer-doc { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .num { font-variant-numeric: tabular-nums; }
+    @media (max-width: 980px) {
+      .doc-layout { grid-template-columns: 1fr; }
+      .toc { position: static; }
+      .paper { padding: 28px 22px 36px; }
+      .cover-meta { grid-template-columns: 1fr; }
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+    .docs-lock { display: none; }
+    .docs-locked .doc-header,
+    .docs-locked .doc-layout { display: none !important; }
+    .docs-locked .docs-lock {
+      min-height: 100vh; display: grid; place-items: center; padding: 32px 20px;
+      background:
+        radial-gradient(720px 380px at 82% -10%, rgba(201, 96, 63, .14), transparent 62%),
+        var(--paper);
+    }
+    .docs-lock-card {
+      width: min(520px, 100%); padding: 38px 34px; text-align: center;
+      background: var(--surface); border: 1px solid var(--line); border-radius: 20px;
+      box-shadow: 0 24px 60px rgba(43, 33, 25, .12);
+    }
+    .docs-lock-card .mark {
+      width: 52px; height: 52px; margin: 0 auto 18px; display: grid; place-items: center;
+      border-radius: 14px; background: linear-gradient(145deg, #b7643a, #8f4a2a);
+      color: #fff; font-family: var(--serif); font-size: 22px; font-weight: 700;
+    }
+    .docs-lock-card .kicker { font-size: 10.5px; font-weight: 700; letter-spacing: .22em; color: var(--gold); }
+    .docs-lock-card h1 { margin: 10px 0 14px; font-size: clamp(24px, 4vw, 30px); }
+    .docs-lock-card p { font-size: 14px; line-height: 1.85; color: var(--muted); }
+    .docs-lock-actions { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-top: 22px; }
+
+    @media print {
+      body { background: #fff; }
+      .doc-header, .toc, .doc-header-actions, .no-print { display: none !important; }
+      .doc-layout { display: block; width: 100%; margin: 0; }
+      .paper { box-shadow: none; border: 0; padding: 0; }
+      h2, h3 { break-after: avoid; }
+      table, pre, .er-wrap, .card { break-inside: avoid; }
+      a { color: #000; text-decoration: none; }
+    }
+  </style>
+  <script>
+    (function () {
+      var locked = true;
+      try {
+        var username = localStorage.getItem("tata-session-v6");
+        var raw = localStorage.getItem("tata-db-v6");
+        if (username && raw) {
+          var data = JSON.parse(raw);
+          var user = (data.users || []).filter(function (u) { return u.username === username; })[0];
+          if (user && user.role === "admin" && user.status === "active") locked = false;
+        }
+      } catch (err) {}
+      if (locked) document.documentElement.className += " docs-locked";
+    })();
+  </script>
+</head>
+<body>
+  <p style="margin:1rem">B 交付的早期设计稿。当前工程使用 A 的真实身份服务，运行步骤与已验收功能见仓库 README。</p>
+  <div class="docs-lock" id="docsLock">
+    <div class="docs-lock-card">
+      <span class="mark">塔</span>
+      <p class="kicker">ACCESS RESTRICTED</p>
+      <h1>文档中心仅超级管理员可见</h1>
+      <p>当前账号没有查看设计文档的权限。请返回系统，使用超级管理员账号（admin / admin123）登录后，再从顶部导航进入文档中心。</p>
+      <div class="docs-lock-actions">
+        <a class="dbtn primary" href="./index.html">返回系统</a>
+        <a class="dbtn" href="./index.html#home">返回首页</a>
+      </div>
+    </div>
+  </div>
+  <header class="doc-header no-print">
+    <div class="doc-header-inner">
+      <a class="doc-brand" href="./index.html">
+        <span class="mark">塔</span>
+        <span>BIT书屋<small>DATABASE COURSE DESIGN</small></span>
+      </a>
+      <div class="doc-header-actions">
+        <a class="dbtn" href="./index.html">返回系统</a>
+        <a class="dbtn" href="./db/schema.sql" download>下载 schema.sql</a>
+        <a class="dbtn" href="./docs/tata-db-course-design.md" download>下载 Markdown</a>
+        <button class="dbtn primary" type="button" onclick="window.print()">打印 / 导出 PDF</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="doc-layout">
+    <aside class="toc no-print">
+      <strong>目录</strong>
+      <a href="#requirement">1 需求分析</a>
+      <a class="sub" href="#roles">1.1 角色与权限</a>
+      <a class="sub" href="#functional">1.2 功能需求</a>
+      <a class="sub" href="#nonfunctional">1.3 非功能需求</a>
+      <a href="#er">2 ER 图设计</a>
+      <a class="sub" href="#entities">2.1 实体与属性</a>
+      <a class="sub" href="#erdiagram">2.2 ER 图</a>
+      <a class="sub" href="#schema">2.3 关系模式</a>
+      <a href="#design">3 功能设计</a>
+      <a class="sub" href="#modules">3.1 功能结构</a>
+      <a class="sub" href="#flow">3.2 业务流程</a>
+      <a class="sub" href="#dbprogramming">3.3 数据库编程支撑</a>
+      <a class="sub" href="#triggers">3.3.1 触发器与重组</a>
+      <a class="sub" href="#procedures">3.3.2 存储过程</a>
+      <a class="sub" href="#ha">3.3.3 主备服务器</a>
+      <a class="sub" href="#multiuser">3.3.4 多用户与 RBAC</a>
+      <a class="sub" href="#frontend">3.4 前端关键实现</a>
+      <a href="#summary">4 总结</a>
+      <a class="sub" href="#achievement">4.1 作业要求达成</a>
+      <a class="sub" href="#problems">4.2 问题与解决</a>
+      <a class="sub" href="#teamwork">4.3 小组合作方法</a>
+      <a class="sub" href="#demo">4.4 现场演示与录屏</a>
+      <a class="sub" href="#limits">4.5 不足与改进</a>
+      <a href="#appendix">附录</a>
+      <div class="toc-note">文档与系统代码同目录，演示账号见附录。所有页面数据保存在浏览器本地，不依赖外部服务。</div>
+    </aside>
+
+    <main class="paper">
+      <div class="cover">
+        <p class="kicker">DATABASE COURSE DESIGN · 2026</p>
+        <h1>BIT书屋 · 图书借阅管理系统</h1>
+        <p class="subtitle">需求分析、ER 图设计、数据库编程与高可用功能设计，以及课程作业达成说明。系统以 GaussDB / openGauss 为数据库背景，前端提供可现场演示的多用户、读者评价、公告发布、主备切换与备份恢复。</p>
+        <div class="cover-meta">
+          <div>课程<b>数据库系统原理 / 数据库课程设计</b></div>
+          <div>系统形态<b>浏览器端演示系统（本地模拟数据库）</b></div>
+          <div>小组<b>第 __ 组（成员分工见 4.3）</b></div>
+        </div>
+      </div>
+
+      <h2 id="requirement">1 需求分析</h2>
+      <p class="lead">BIT书屋面向校园读者提供图书检索、借阅与归还服务，同时作为数据库课程设计，需要覆盖多用户权限、数据库编程、主备高可用、备份恢复与数据交换等考核点。系统将“读者可感知的业务功能”与“数据库课程要求的技术功能”放在同一套界面中演示。</p>
+
+      <h3 id="roles">1.1 角色与权限需求</h3>
+      <table>
+        <thead><tr><th style="width:15%">角色</th><th style="width:35%">业务职责</th><th>权限边界</th></tr></thead>
+        <tbody>
+          <tr><td><b>超级管理员 admin</b></td><td>维护全部用户与角色、批量注册新用户、备份恢复、主备切换、查看审计、发布公告、编辑与删除评价、查看设计文档</td><td>全部权限（<code>*</code>）：图书、借阅、用户、数据库实验台、导入导出、备份、主备、审计、评价、公告、文档中心</td></tr>
+          <tr><td><b>图书管理员 librarian</b></td><td>维护馆藏与借阅记录、编辑读者评价、发布与修改公告、维护本人与读者资料、批量注册读者账号</td><td>图书读写与上架、借阅查看与管理、评价与公告管理、查看用户并编辑本人/读者资料（账号不可修改）、批量注册读者；<b>无</b>用户增删与角色/启停、备份恢复、主备切换、文档中心权限</td></tr>
+          <tr><td><b>读者 reader</b></td><td>浏览馆藏、借阅与归还本人图书、归还后打星评价</td><td>图书只读、本人借阅/归还、评分与评价、查看公告、PDF 试读；<b>无</b>管理控制台权限</td></tr>
+          <tr><td><b>访客 guest</b></td><td>未登录浏览图书详情与公告</td><td>图书与公告只读、查看评价；借阅/试读/评价前必须登录</td></tr>
+        </tbody>
+      </table>
+      <div class="callout">RBAC 的权限矩阵在「用户与权限」页面可视化展示。前端隐藏无权限入口只是体验优化，真正的安全边界应由后端接口再次校验；文档 3.3.4 给出接口鉴权与数据库最小权限方案。</div>
+
+      <h3 id="functional">1.2 功能需求</h3>
+      <table>
+        <thead><tr><th style="width:8%">编号</th><th style="width:22%">功能</th><th>说明</th><th style="width:20%">演示入口</th></tr></thead>
+        <tbody>
+          <tr><td>F01</td><td>首页与全部图书</td><td>首页展示馆藏统计、公告、新上架与热门排行；全部图书页提供分类筛选、关键词搜索与完整馆藏列表，图书卡片展示封面、评分与可借数量</td><td>首页 / 全部图书</td></tr>
+          <tr><td>F02</td><td>借阅</td><td>登录读者选择图书，校验借阅上限（5 本）、重复借阅与库存后生成 30 天借期记录</td><td>热门图书 → 借阅</td></tr>
+          <tr><td>F03</td><td>归还</td><td>读者或管理员归还图书，库存自动恢复，逾期状态可扫描更新</td><td>我的借阅 / 借阅管理</td></tr>
+          <tr><td>F04</td><td>多用户与权限</td><td>应用账号登录、MD5 密码摘要、角色权限矩阵；超级管理员可编辑全部用户，图书管理员只能编辑本人与读者，账号不可修改，支持批量导入注册新用户</td><td>用户与权限</td></tr>
+          <tr><td>F05</td><td>数据库多用户 / IAM</td><td>展示 DBA、应用、只读、备份、审计五类数据库账户及其认证方式与权限</td><td>用户与权限 → 数据库账户</td></tr>
+          <tr><td>F06</td><td>多表联查与 SQL 组装</td><td>按场景生成参数化 SQL，执行热门排行、借阅明细、读者汇总、库存预警查询</td><td>数据库实验台</td></tr>
+          <tr><td>F07</td><td>存储过程与触发器</td><td>调用借阅/归还/逾期扫描/统计过程，查看触发器定义与最近触发日志</td><td>数据库实验台</td></tr>
+          <tr><td>F08</td><td>数据导入导出</td><td>本地 CSV / JSON 上传、表头识别、预览、合并导入；图书/借阅/用户/全量快照下载</td><td>导入导出</td></tr>
+          <tr><td>F09</td><td>读者评价与十分制评分</td><td>读者归还图书后可打 1–5 星（必填）并填写文字（选填）；管理端可查看、编辑、隐藏、删除评价；图书得分 = 平均星级 × 2</td><td>读者评价 / 控制台 → 读者评价</td></tr>
+          <tr><td>F10</td><td>备份与恢复</td><td>应用按钮发起服务器端快照、列表展示、恢复、下载/上传备份文件</td><td>备份与恢复</td></tr>
+          <tr><td>F11</td><td>主备服务器</td><td>主备拓扑、心跳/延迟/CPU 状态、手动切换、关闭主节点自动提升备节点、恢复节点</td><td>主备服务器</td></tr>
+          <tr><td>F12</td><td>业务流程与审计</td><td>业务流程动画演示；登录、借阅、触发器、备份、切换等事件写入审计日志</td><td>运营概览 / 审计日志</td></tr>
+          <tr><td>F13</td><td>读者注册</td><td>自助注册读者账号并自动登录，缴纳保证金；账号、密码校验与 MD5 摘要入库</td><td>登录弹窗 → 注册新账户</td></tr>
+          <tr><td>F14</td><td>馆内公告</td><td>超级管理员和图书管理员在控制台发布、编辑、置顶、删除公告；访客和读者只能查看已发布公告</td><td>馆内公告 / 控制台 → 公告管理</td></tr>
+          <tr><td>F15</td><td>图书上架状态</td><td>图书管理支持「已上架 / 仓库待上架 / 已下架」三种状态；超级管理员和图书管理员均可编辑与快速上架 / 下架，未上架图书不对读者展示</td><td>控制台 → 图书管理</td></tr>
+        </tbody>
+      </table>
+
+      <h3 id="nonfunctional">1.3 非功能需求</h3>
+      <div class="grid-2">
+        <div class="card"><h4>安全</h4><p>密码不以明文入库；SQL 使用命名参数绑定；前端所有动态内容转义；数据库账户最小权限；审计日志只追加、应用账户不可删除。</p></div>
+        <div class="card"><h4>可用性</h4><p>主备双节点部署，主节点故障时自动提升备节点；前端展示连接状态并自动重连；备份可恢复。</p></div>
+        <div class="card"><h4>性能</h4><p>热门排行使用覆盖索引思路（book_id、borrowed_at）；分页与 LIMIT 限制结果集；评分按 book_id 聚合并在评价变更时增量重算。</p></div>
+        <div class="card"><h4>可演示性</h4><p>所有技术点在浏览器中可操作、有状态反馈与审计留痕；提供演示账号、演示脚本与截图/录屏步骤。</p></div>
+      </div>
+
+      <h2 id="er">2 ER 图设计</h2>
+      <h3 id="entities">2.1 实体与属性</h3>
+      <table>
+        <thead><tr><th style="width:18%">实体</th><th style="width:22%">主键</th><th>主要属性</th></tr></thead>
+        <tbody>
+          <tr><td>用户 users</td><td>user_id</td><td>username（唯一）、password_md5、name、role_code（FK）、status、email、phone、created_at、last_login</td></tr>
+          <tr><td>角色 roles</td><td>role_code</td><td>name、description、permissions（数组 / JSON）</td></tr>
+          <tr><td>分类 categories</td><td>category_id</td><td>name（唯一）、sort</td></tr>
+          <tr><td>图书 books</td><td>book_id</td><td>title、author、category（FK）、isbn、publisher、year、total、available、shelf_status（已上架 / 仓库待上架 / 已下架）、rating、borrow_count、cover_blob、cover_mime、description</td></tr>
+          <tr><td>借阅记录 borrows</td><td>borrow_id</td><td>user_id（FK）、book_id（FK）、borrowed_at、due_at、returned_at、status、renew_count、operator</td></tr>
+          <tr><td>审计日志 audit_logs</td><td>log_id</td><td>ts、actor、action、detail、level、node</td></tr>
+          <tr><td>数据库账户 db_accounts</td><td>db_user</td><td>type、auth_type、privileges、status、last_login</td></tr>
+          <tr><td>备份 backups</td><td>backup_id</td><td>ts、type、size、node、status、note、snapshot</td></tr>
+        </tbody>
+      </table>
+
+      <h3 id="erdiagram">2.2 ER 图</h3>
+      <div class="er-wrap">
+        <svg viewBox="0 0 1000 750" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="图书借阅管理系统 ER 图">
+          <defs>
+            <style>
+              .ent rect.body { fill: #fffdf9; stroke: #cdb99a; stroke-width: 1.2; }
+              .ent rect.head { fill: #f2e7d5; stroke: #cdb99a; stroke-width: 1.2; }
+              .ent text.title { font: 700 14px "PingFang SC", "Microsoft YaHei", sans-serif; fill: #2b2119; }
+              .ent text.attr { font: 11.5px ui-monospace, Menlo, monospace; fill: #4d3d2d; }
+              .ent text.pk { font: 700 10px "PingFang SC", sans-serif; fill: #8f4a2a; }
+              .rel { fill: #f7eddd; stroke: #b98a3f; stroke-width: 1.3; }
+              .rel-text { font: 700 11.5px "PingFang SC", sans-serif; fill: #7c5a2a; text-anchor: middle; }
+              .line { stroke: #b7a284; stroke-width: 1.5; fill: none; }
+              .card { font: 600 11px ui-monospace, Menlo, monospace; fill: #8f4a2a; }
+              .note { font: 11px "PingFang SC", sans-serif; fill: #7c6b56; }
+            </style>
+          </defs>
+
+          <g class="ent">
+            <rect class="head" x="40" y="50" width="180" height="32" rx="6"/>
+            <rect class="body" x="40" y="82" width="180" height="92" rx="6"/>
+            <text class="title" x="56" y="71">分类 categories</text>
+            <text class="pk" x="56" y="102">PK</text><text class="attr" x="82" y="102">category_id</text>
+            <text class="attr" x="56" y="122">name</text>
+            <text class="attr" x="56" y="142">sort</text>
+          </g>
+
+          <g class="ent">
+            <rect class="head" x="300" y="50" width="240" height="32" rx="6"/>
+            <rect class="body" x="300" y="82" width="240" height="172" rx="6"/>
+            <text class="title" x="316" y="71">图书 books</text>
+            <text class="pk" x="316" y="102">PK</text><text class="attr" x="342" y="102">book_id</text>
+            <text class="attr" x="316" y="122">title / author</text>
+            <text class="attr" x="316" y="142">category  (FK)</text>
+            <text class="attr" x="316" y="162">isbn / publisher / year</text>
+            <text class="attr" x="316" y="182">total / available</text>
+            <text class="attr" x="316" y="202">rating / borrow_count</text>
+            <text class="attr" x="316" y="222">cover_blob / cover_mime</text>
+            <text class="attr" x="316" y="242">description</text>
+          </g>
+
+          <g class="ent">
+            <rect class="head" x="620" y="50" width="260" height="32" rx="6"/>
+            <rect class="body" x="620" y="82" width="260" height="172" rx="6"/>
+            <text class="title" x="636" y="71">借阅记录 borrows</text>
+            <text class="pk" x="636" y="102">PK</text><text class="attr" x="662" y="102">borrow_id</text>
+            <text class="attr" x="636" y="122">user_id  (FK)</text>
+            <text class="attr" x="636" y="142">book_id  (FK)</text>
+            <text class="attr" x="636" y="162">borrowed_at / due_at</text>
+            <text class="attr" x="636" y="182">returned_at</text>
+            <text class="attr" x="636" y="202">status / renew_count</text>
+            <text class="attr" x="636" y="222">operator</text>
+          </g>
+
+          <g class="ent">
+            <rect class="head" x="40" y="330" width="180" height="32" rx="6"/>
+            <rect class="body" x="40" y="362" width="180" height="112" rx="6"/>
+            <text class="title" x="56" y="351">角色 roles</text>
+            <text class="pk" x="56" y="382">PK</text><text class="attr" x="82" y="382">role_code</text>
+            <text class="attr" x="56" y="402">name</text>
+            <text class="attr" x="56" y="422">permissions</text>
+            <text class="attr" x="56" y="442">description</text>
+          </g>
+
+          <g class="ent">
+            <rect class="head" x="300" y="330" width="240" height="32" rx="6"/>
+            <rect class="body" x="300" y="362" width="240" height="172" rx="6"/>
+            <text class="title" x="316" y="351">用户 users</text>
+            <text class="pk" x="316" y="382">PK</text><text class="attr" x="342" y="382">user_id</text>
+            <text class="attr" x="316" y="402">username (unique)</text>
+            <text class="attr" x="316" y="422">password_md5</text>
+            <text class="attr" x="316" y="442">name / email / phone</text>
+            <text class="attr" x="316" y="462">role_code  (FK)</text>
+            <text class="attr" x="316" y="482">status / created_at</text>
+            <text class="attr" x="316" y="502">last_login</text>
+          </g>
+
+          <g class="ent">
+            <rect class="head" x="620" y="330" width="260" height="32" rx="6"/>
+            <rect class="body" x="620" y="362" width="260" height="152" rx="6"/>
+            <text class="title" x="636" y="351">审计日志 audit_logs</text>
+            <text class="pk" x="636" y="382">PK</text><text class="attr" x="662" y="382">log_id</text>
+            <text class="attr" x="636" y="402">ts / actor / node</text>
+            <text class="attr" x="636" y="422">action / level</text>
+            <text class="attr" x="636" y="442">detail</text>
+            <text class="attr" x="636" y="462">（只追加，不允许应用删除）</text>
+          </g>
+
+          <g class="ent">
+            <rect class="head" x="40" y="570" width="220" height="32" rx="6"/>
+            <rect class="body" x="40" y="602" width="220" height="92" rx="6"/>
+            <text class="title" x="56" y="591">备份 backups</text>
+            <text class="pk" x="56" y="622">PK</text><text class="attr" x="82" y="622">backup_id</text>
+            <text class="attr" x="56" y="642">ts / type / size</text>
+            <text class="attr" x="56" y="662">node / status / note</text>
+            <text class="attr" x="56" y="682">snapshot</text>
+          </g>
+
+          <g class="ent">
+            <rect class="head" x="340" y="570" width="260" height="32" rx="6"/>
+            <rect class="body" x="340" y="602" width="260" height="112" rx="6"/>
+            <text class="title" x="356" y="591">数据库账户 db_accounts</text>
+            <text class="pk" x="356" y="622">PK</text><text class="attr" x="382" y="622">db_user</text>
+            <text class="attr" x="356" y="642">type / auth_type</text>
+            <text class="attr" x="356" y="662">privileges</text>
+            <text class="attr" x="356" y="682">status / last_login</text>
+            <text class="attr" x="356" y="702">（由 IAM 统一管理）</text>
+          </g>
+
+          <path class="line" d="M220 104 H300"/>
+          <text class="card" x="232" y="96">1</text>
+          <text class="card" x="280" y="96">N</text>
+          <text class="note" x="234" y="120">归类</text>
+
+          <path class="line" d="M540 150 H620"/>
+          <text class="card" x="552" y="142">1</text>
+          <text class="card" x="598" y="142">N</text>
+          <text class="note" x="556" y="166">被借阅</text>
+
+          <path class="line" d="M420 330 V260"/>
+          <path class="line" d="M420 260 H700 V254"/>
+          <text class="card" x="426" y="286">1</text>
+          <text class="card" x="706" y="278">N</text>
+          <text class="note" x="466" y="252">借阅（M:N 拆分为关联实体）</text>
+
+          <path class="line" d="M220 398 H300"/>
+          <text class="card" x="232" y="390">1</text>
+          <text class="card" x="280" y="390">N</text>
+          <text class="note" x="236" y="414">拥有</text>
+
+          <path class="line" d="M540 440 H620"/>
+          <text class="card" x="552" y="432">1</text>
+          <text class="card" x="598" y="432">N</text>
+          <text class="note" x="552" y="456">产生</text>
+
+          <path class="line" d="M260 628 H340"/>
+          <text class="card" x="272" y="620">N</text>
+          <text class="card" x="318" y="620">1</text>
+          <text class="note" x="268" y="644">发起备份</text>
+
+          <rect x="660" y="560" width="220" height="120" rx="10" fill="#fbf4e8" stroke="#e0cfb4" stroke-dasharray="4 4"/>
+          <text class="note" x="676" y="584">借阅为 M:N 关系，关系模式中</text>
+          <text class="note" x="676" y="604">拆为 borrows 关联实体，保存</text>
+          <text class="note" x="676" y="624">借期、状态、归还时间与操作者。</text>
+          <text class="note" x="676" y="644">角色与用户为 1:N；分类与图书</text>
+          <text class="note" x="676" y="664">为 1:N；用户与审计为 1:N。</text>
+        </svg>
+      </div>
+      <p class="er-note">图例：PK 主键，FK 外键；1 : N 表示一对多。图书的 <code>available</code> 为可由借阅记录推导的冗余字段，用于触发器演示与高频库存查询。</p>
+
+      <h3 id="schema">2.3 关系模式与规范化</h3>
+      <table>
+        <thead><tr><th style="width:20%">关系</th><th style="width:28%">主键 / 外键</th><th>约束与索引</th></tr></thead>
+        <tbody>
+          <tr><td>roles(role_code, name, permissions, description)</td><td>PK role_code</td><td>role_code 枚举校验；permissions 为 JSONB</td></tr>
+          <tr><td>users(user_id, username, password_md5, name, role_code, status, ...)</td><td>PK user_id；FK role_code → roles</td><td>UNIQUE(username)；status ∈ {active, disabled}</td></tr>
+          <tr><td>categories(category_id, name, sort)</td><td>PK category_id</td><td>UNIQUE(name)</td></tr>
+          <tr><td>books(book_id, title, author, category, ...)</td><td>PK book_id；FK category → categories(name)</td><td>CHECK(available BETWEEN 0 AND total)；索引(category, available)</td></tr>
+          <tr><td>borrows(borrow_id, user_id, book_id, borrowed_at, due_at, returned_at, status)</td><td>PK borrow_id；FK user_id、book_id</td><td>CHECK(due_at &gt; borrowed_at)；索引(user_id, status)、索引(book_id, borrowed_at)</td></tr>
+          <tr><td>audit_logs(log_id, ts, actor, action, detail, level, node)</td><td>PK log_id</td><td>索引(ts DESC)、索引(level)；只追加</td></tr>
+          <tr><td>db_accounts(db_user, type, auth_type, privileges, status)</td><td>PK db_user</td><td>由 IAM 维护，应用只读</td></tr>
+          <tr><td>backups(backup_id, ts, type, size, node, status, note, snapshot)</td><td>PK backup_id</td><td>索引(ts DESC)；保留最近 4 份</td></tr>
+        </tbody>
+      </table>
+      <p>关系模式满足第三范式：用户属性只依赖 user_id，图书属性只依赖 book_id，借阅属性只依赖 borrow_id。为保证库存查询性能与触发器演示，<code>books.available</code> 与 <code>books.borrow_count</code> 作为受控冗余字段存在，由触发器在借阅/归还事务中同步维护，并在数据导入与恢复时重新计算。</p>
+
+      <h2 id="design">3 功能设计</h2>
+      <h3 id="modules">3.1 总体功能结构</h3>
+      <div class="grid-2">
+        <div class="card"><h4>读者门户</h4><p>首页统计 · 最近 3 条公告 · 新上架 · 热门图书 · 全部图书页（分类筛选 + 关键词搜索）· 借阅确认 · 全部公告页 · 我的书库（我的借阅 / 我的评价）· 归还 · 登录/切换账号</p></div>
+        <div class="card"><h4>管理控制台</h4><p>运营概览 · 图书管理 · 借阅管理 · 读者评价 · 公告管理 · 用户与权限 · 数据库实验台 · 导入导出 · 备份恢复 · 主备服务器 · 审计日志</p></div>
+        <div class="card"><h4>数据库对象</h4><p>8 张核心表 · 3 个触发器 · 5 个存储过程/函数 · 4 类索引 · 2 个数据库角色 · 审计只追加</p></div>
+        <div class="card"><h4>高可用与运维</h4><p>主备拓扑 · WAL 流复制 · 自动故障转移 · 连接串路由 · 全量备份 · 快照恢复 · 本地导入导出</p></div>
+      </div>
+
+      <h3 id="flow">3.2 业务流程</h3>
+      <p><b>借阅流程：</b>读者登录（MD5 校验）→ 检索图书（books ⋈ categories）→ 选择图书 → 前端组装参数化请求 → 调用 <code>sp_borrow_book</code> → 触发器校验借阅上限、重复借阅与库存 → 写入 <code>borrows</code> → 触发器扣减 <code>available</code> 并写审计 → 事务提交后 WAL 复制到备节点。</p>
+      <div class="flow">
+        <span>登录</span><i>→</i><span>检索</span><i>→</i><span>借阅申请</span><i>→</i><span>触发器校验</span><i>→</i><span>写入借阅记录</span><i>→</i><span>库存 -1</span><i>→</i><span>主备同步</span><i>→</i><span>审计</span>
+      </div>
+      <p><b>归还流程：</b>读者在“我的借阅”点击归还 → 调用 <code>sp_return_book</code> → 校验记录状态 → 更新 <code>status='returned'</code> 与 <code>returned_at</code> → 触发器恢复库存（不超过 total）→ 写审计 → 前端刷新列表与统计。借阅状态机为：<code>borrowing → returned</code>；到期未还时由 <code>sp_overdue_check</code> 置为 <code>overdue</code>，归还后仍进入 <code>returned</code>。</p>
+      <div class="callout green">业务规则尽量下沉到数据库：借阅上限、重复借阅、库存不能为负、到期日必须晚于借出日等约束在存储过程与触发器中实现，应用层只做提示与界面联动，避免多个入口写入时出现不一致。</div>
+
+      <h3 id="dbprogramming">3.3 数据库编程为功能设计提供的帮助</h3>
+      <p class="lead">数据库编程不是“把 SQL 写长”，而是把跨请求、跨入口的一致性规则封装到数据库侧，使应用功能更简单、更可靠，并让高可用与多用户能力有落地基础。</p>
+
+      <h4 id="triggers">3.3.1 GaussDB 触发器、存储过程与“重组”</h4>
+      <p><b>触发器的作用：</b>借阅写入后自动扣减库存；归还更新后自动恢复库存；写入前后校验借阅上限、重复借阅与日期合法性；所有关键动作写入审计表。触发器与业务写入处于同一事务，任何一个失败都会回滚，避免“借阅记录写了但库存没扣”的半成功状态。</p>
+      <table>
+        <thead><tr><th style="width:22%">对象</th><th style="width:22%">触发时机</th><th>职责</th></tr></thead>
+        <tbody>
+          <tr><td>fn_after_borrow / trg_after_borrow</td><td>AFTER INSERT ON borrows</td><td>库存 -1；库存不足时抛异常回滚；写审计</td></tr>
+          <tr><td>fn_after_return / trg_after_return</td><td>AFTER UPDATE ON borrows</td><td>状态变为 returned 时库存 +1（LEAST(total, available+1)）；写审计</td></tr>
+          <tr><td>fn_validate_borrow / trg_validate_borrow</td><td>BEFORE INSERT ON borrows</td><td>校验 due_at &gt; borrowed_at、借阅上限 5 本；异常回滚</td></tr>
+        </tbody>
+      </table>
+      <p><b>“重组”与运维：</b>课程要求中提到的“重组”可理解为数据库物理层的空间整理与在线维护。GaussDB/openGauss 提供 <code>VACUUM</code>、<code>VACUUM FULL</code>、<code>REINDEX</code>、表分区与在线扩容等能力：借阅日志按月份分区，历史数据可归档；频繁更新的 <code>books.available</code> 会产生死元组，定期 <code>VACUUM</code> 回收空间；索引用 <code>REINDEX</code> 重建以保持查询性能。触发器/存储过程保证逻辑一致性，重组保证物理性能，两者共同支撑“借阅高峰仍可稳定查询库存”的功能目标。</p>
+      <div class="callout amber">触发器不是越多越好：复杂业务编排仍应放在存储过程或应用服务中；触发器只承担与数据一致性强相关、必须同事务执行的规则，并避免递归触发。</div>
+
+      <h4 id="procedures">3.3.2 存储过程与函数</h4>
+      <table>
+        <thead><tr><th style="width:24%">过程 / 函数</th><th>参数</th><th>功能</th></tr></thead>
+        <tbody>
+          <tr><td>sp_borrow_book</td><td>p_user_id, p_book_id</td><td>校验读者与库存，写入借阅记录；库存由触发器维护</td></tr>
+          <tr><td>sp_return_book</td><td>p_borrow_id</td><td>更新归还状态；触发器恢复库存并写审计</td></tr>
+          <tr><td>sp_overdue_check</td><td>无</td><td>扫描到期未还记录，批量置为 overdue</td></tr>
+          <tr><td>sp_hot_books</td><td>p_limit</td><td>按近 30 天借阅与历史热度返回排行</td></tr>
+          <tr><td>sp_user_summary</td><td>p_user_id</td><td>统计累计、在借与逾期数量</td></tr>
+        </tbody>
+      </table>
+      <p>存储过程的价值在于：<b>减少网络往返</b>（一次调用完成多条 SQL）、<b>复用业务规则</b>（前端、后台任务、导入脚本都调用同一过程）、<b>权限收敛</b>（应用账户只被授予 EXECUTE，不直接授予所有表的写权限）、<b>可审计</b>（过程内统一写入日志）。</p>
+      <pre><code>CREATE OR REPLACE PROCEDURE sp_borrow_book(p_user_id UUID, p_book_id TEXT)
+LANGUAGE plpgsql AS $$
+DECLARE v_active INT; v_stock INT;
+BEGIN
+  SELECT COUNT(*) INTO v_active FROM borrows
+   WHERE user_id = p_user_id AND status &lt;&gt; 'returned';
+  IF v_active &gt;= 5 THEN
+    RAISE EXCEPTION '每位读者最多同时借阅 5 本';
+  END IF;
+  SELECT available INTO v_stock FROM books
+   WHERE book_id = p_book_id FOR UPDATE;
+  IF v_stock &lt;= 0 THEN
+    RAISE EXCEPTION '库存不足';
+  END IF;
+  INSERT INTO borrows(borrow_id, user_id, book_id, borrowed_at, due_at, status)
+  VALUES (gen_random_uuid(), p_user_id, p_book_id, NOW(), NOW() + INTERVAL '30 days', 'borrowing');
+END; $$;</code></pre>
+
+      <h4 id="ha">3.3.3 主备服务器实现</h4>
+      <p>GaussDB/openGauss 主备集群通过 WAL 流复制把主节点的日志持续发送到备节点，备节点回放后保持数据一致。生产部署通常包含：</p>
+      <ul>
+        <li><b>复制模式：</b>同步复制（<code>synchronous_standby_names</code>）保证主备强一致，或异步复制换取更低延迟；课程演示展示复制延迟与状态。</li>
+        <li><b>仲裁与选主：</b>由 DCS/etcd 等组件检测心跳，超过阈值判定主节点故障，按优先级提升备节点，避免脑裂。</li>
+        <li><b>连接路由：</b>应用连接串同时配置两个节点（<code>host1,host2</code>），配合 <code>target_session_attrs=read-write</code> 或虚拟 IP，把读写请求自动路由到新主节点。</li>
+        <li><b>前端职责：</b>展示主备拓扑、心跳、延迟、CPU/内存与事件日志；提供手动切换、模拟关闭主节点、恢复节点按钮；故障转移过程中提示“检测心跳 → 仲裁选主 → 提升备节点 → 更新连接 → 自动重连”。</li>
+      </ul>
+      <pre><code># openGauss 主备关键参数（示例）
+synchronous_standby_names = 'ANY 1 (node_b)'
+wal_level = logical
+max_wal_senders = 8
+hot_standby = on
+
+# 故障转移（由集群管理工具执行，应用无感）
+gs_ctl failover -D /data/gaussdb/node_b
+gs_ctl build -D /data/gaussdb/node_a</code></pre>
+      <p><b>与功能设计的结合：</b>借阅/归还事务提交后必须确认已同步到备节点（或允许少量延迟但明确 RPO）；故障转移后，前端仍然通过连接串访问“当前主节点”，无需改代码；运营概览中的服务器状态来自集群心跳接口，帮助管理员判断是否可以安全演练。</p>
+
+      <h4 id="multiuser">3.3.4 应用系统多用户设计与数据库多用户</h4>
+      <p>系统把“人”和“数据库账户”分开：<b>应用用户</b>是 admin、librarian、reader 等业务身份；<b>数据库账户</b>是 gauss_dba、tata_app、tata_readonly、tata_backup、tata_audit 等连接身份，由 IAM 统一管理，浏览器永远拿不到数据库密码。</p>
+      <div class="grid-2">
+        <div class="card"><h4>应用层 RBAC</h4><p>角色 → 权限集合 → 页面/按钮/接口。前端隐藏无权限入口，后端接口再次校验；超级管理员可启停账号、重置密码、调整角色并编辑全部用户，图书管理员只能编辑本人与读者资料且账号不可修改，两类角色均可批量注册新账号，并保证至少保留一名启用管理员。</p></div>
+        <div class="card"><h4>数据库层最小权限</h4><p>tata_app 仅拥有业务表的 SELECT/INSERT/UPDATE 与过程 EXECUTE；audit_logs 禁止应用删除；备份账户只用于备份任务；报表账户只读；DBA 通过 IAM 登录并双因子认证。</p></div>
+      </div>
+      <table>
+        <thead><tr><th style="width:18%">应用角色</th><th>典型权限</th><th style="width:22%">数据库访问方式</th></tr></thead>
+        <tbody>
+          <tr><td>admin</td><td>全部业务 + 用户/备份/主备/审计</td><td>通过后端管理接口，后端使用 tata_app；运维动作由 tata_backup / IAM 执行</td></tr>
+          <tr><td>librarian</td><td>图书、借阅、查询、评价/公告、本人与读者资料维护、批量注册读者</td><td>tata_app + 只读报表视图</td></tr>
+          <tr><td>reader</td><td>本人借阅/归还、浏览</td><td>仅通过 API 调用 sp_borrow_book / sp_return_book</td></tr>
+        </tbody>
+      </table>
+      <p><b>密码：</b>课程要求使用 MD5，系统在登录时计算 <code>MD5(输入密码)</code> 与 <code>users.password_md5</code> 比对，数据库中不保存明文。MD5 已不适合生产环境（无盐、易碰撞、易彩虹表），改进方向是 bcrypt/Argon2 + 随机盐 + HTTPS，并在文档与界面中明确标注。</p>
+      <p><b>防注入：</b>多表联查的参数（分类、状态、关键词、阈值）通过命名参数绑定，前端只展示 SQL 模板，不把用户输入拼进 SQL 文本；后端使用 PreparedStatement 或 <code>EXECUTE ... USING</code>。</p>
+
+      <h3 id="frontend">3.4 前端关键实现</h3>
+      <h4>Vue 3 单页应用</h4>
+      <p>前端已重构为 Vue 3 组合式 API 单页应用，使用 hash 路由组织首页、馆内公告、全部图书、我的书库与管理控制台；公共页面、登录注册、图书详情、借阅归还与评价弹窗均由 Vue 组件管理。演示数据层保留在 <code>db.js</code>，通过 <code>src/services/api.js</code> 统一封装，后续可替换为 Spring Boot + openGauss 微服务接口，而不改动页面组件。</p>
+      <h4>多表联查与 SQL 组装</h4>
+      <p>数据库实验台提供四种场景：热门排行（books ⋈ categories ⟕ borrows）、借阅明细（users ⋈ borrows ⋈ books）、读者汇总（users ⟕ borrows + 聚合）、库存预警（books ⋈ categories + 过滤）。用户选择参数后，前端生成带命名参数的 SQL 并展示参数值，执行后渲染结果网格与模拟执行计划。</p>
+      <pre><code>SELECT b.book_id, b.title, c.name AS category,
+       b.borrow_count, COUNT(br.borrow_id) AS recent_count,
+       ROUND(b.rating * 2, 1) AS rating_10, b.available || ' / ' || b.total AS stock
+FROM books b
+JOIN categories c ON c.name = b.category
+LEFT JOIN borrows br ON br.book_id = b.book_id
+     AND br.borrowed_at &gt;= CURRENT_DATE - INTERVAL '30 days'
+WHERE (:category = '全部' OR c.name = :category)
+GROUP BY b.book_id, b.title, c.name, b.borrow_count, b.rating, b.available, b.total
+ORDER BY recent_count DESC, b.borrow_count DESC
+LIMIT :limit;</code></pre>
+
+      <h4>读者评价与十分制评分</h4>
+      <p>评价表记录读者、图书、1–5 星评分、可选文字、状态与时间。提交前校验：必须已登录读者账号，且该读者存在该书的已归还借阅记录；评分必填，文字最多 500 字且可留空。图书得分由所有可见评价的平均星级折算：<code>评分 = AVG(star) × 2</code>，保留一位小数，即十分制。删除或隐藏评价后立即重新计算平均分与评价人数。管理端可查看全部评价（含隐藏），并可编辑星级与文字、隐藏或删除评价，保存后立即重算图书得分。</p>
+      <pre><code>SELECT ROUND(AVG(rating) * 2, 1) AS score_10,
+       COUNT(*) AS rating_count
+FROM reviews
+WHERE book_id = :book_id AND type = 'review' AND status = 'visible';</code></pre>
+
+      <h4>馆内公告</h4>
+      <p>公告表保存标题、正文、置顶标记、发布状态与作者。超级管理员和图书管理员可在控制台新增、编辑、置顶、删除公告；发布状态分为“已发布”和“草稿”，访客与读者只能查询 <code>status = 'published'</code> 的记录。首页「馆内公告」仅展示最近 3 条，完整列表在独立公告页中查看；置顶公告优先展示。</p>
+
+      <h4>数据导入导出</h4>
+      <p>导出使用 <code>Blob</code> + <code>URL.createObjectURL</code> 生成下载文件，CSV 带 BOM 以兼容 Excel；导入使用 <code>FileReader</code> 读取用户选择的文件，识别表头（书名/账号）后预览前 5 行，再合并到图书或用户表。密码列导出的是 MD5 摘要；用户 CSV 导入时若提供明文密码，前端先转 MD5 再写入。所有操作在浏览器本地完成，不经过上传接口。</p>
+
+      <h4>备份恢复：按钮在应用，执行在服务器</h4>
+      <p>“备份与恢复”页面上的按钮是应用层入口，真实系统由后端执行服务器端备份：<code>gs_dump -Fc tata_books</code> 或 <code>pg_basebackup</code>，文件写入数据库服务器备份目录，返回备份编号、大小与状态；恢复时后端先校验备份，再停止写入、恢复并重启连接池。前端只负责发起、展示和二次确认。本地 JSON 下载/上传是另一条链路，适合留档与换机演示，不能替代服务器物理备份。</p>
+
+      <h2 id="summary">4 总结</h2>
+      <h3 id="achievement">4.1 作业要求项达成说明</h3>
+      <table>
+        <thead><tr><th style="width:30%">作业要求</th><th style="width:38%">实现说明</th><th>演示位置</th></tr></thead>
+        <tbody>
+          <tr><td>多用户、数据库多用户（IAM）</td><td>应用用户 admin/librarian/reader + 数据库账户 gauss_dba/tata_app/tata_readonly/tata_backup/tata_audit</td><td>用户与权限</td></tr>
+          <tr><td>应用层多用户划分、RBAC</td><td>角色权限矩阵、前端入口隐藏、操作二次校验、账号启停与至少一名管理员保护</td><td>用户与权限 → RBAC 权限矩阵</td></tr>
+          <tr><td>前端多表联动查询、组装 SQL、调用存储过程</td><td>四种联查场景、命名参数 SQL 预览、结果网格、执行计划；五个过程/函数可调用</td><td>数据库实验台</td></tr>
+          <tr><td>应用用户密码加密（MD5）</td><td>登录实时展示 MD5，数据库只存摘要；新增/重置密码显示将写入的摘要</td><td>登录弹窗 / 用户与权限</td></tr>
+          <tr><td>数据导入导出（本地完成、上传下载）</td><td>FileReader 导入 CSV/JSON、预览、合并；Blob 下载图书/借阅/用户/全量快照</td><td>导入导出</td></tr>
+          <tr><td>读者评价、十分制评分与公告发布（扩展）</td><td>归还后打星评价、文字选填；平均星级 × 2 折算十分制；超级管理员/图书管理员编辑评价、发布公告，访客与读者只读</td><td>读者评价 / 馆内公告 / 控制台</td></tr>
+          <tr><td>数据库备份恢复（应用按钮）</td><td>服务器端快照入口、备份列表、恢复确认、下载/上传备份；说明前后端职责边界</td><td>备份与恢复</td></tr>
+          <tr><td>主备服务器、前端切换与状态展示、关闭主节点自动提升</td><td>拓扑图、心跳/延迟/CPU、手动切换、模拟关闭主节点、自动提升备节点、恢复节点、事件日志</td><td>主备服务器</td></tr>
+          <tr><td>展现管理系统业务流程</td><td>运营概览 8 步流程动画 + 审计留痕；借阅/归还状态机说明</td><td>运营概览</td></tr>
+          <tr><td>现场演示 / 录屏</td><td>内置演示账号、演示脚本与本章 4.4 的镜头清单</td><td>登录弹窗 / 本文档</td></tr>
+        </tbody>
+      </table>
+
+      <h3 id="problems">4.2 开发遇到的问题与解决方案</h3>
+      <table>
+        <thead><tr><th style="width:26%">问题</th><th style="width:34%">原因</th><th>解决方案</th></tr></thead>
+        <tbody>
+          <tr><td>预览页面一直显示旧版本</td><td>预览层/浏览器缓存了旧 HTML 文档，服务端已更新但条件请求返回 304</td><td>响应改为 <code>Cache-Control: no-store</code>，移除 ETag/Last-Modified，给静态资源加版本号，并在交付说明中要求强制刷新</td></tr>
+          <tr><td>子路径预览白屏</td><td>资源使用根绝对路径（<code>/src/main.js</code>），在 <code>/ports/30001</code> 子路径下 404</td><td>全部资源改为 <code>./</code> 相对路径；静态托管统一从项目根目录提供</td></tr>
+          <tr><td>借阅高峰库存超卖</td><td>先查库存再写入，两个事务并发时都看到“有库存”</td><td>存储过程内 <code>SELECT ... FOR UPDATE</code> 行锁 + 触发器库存非负约束；把校验与写入放在同一事务</td></tr>
+          <tr><td>归还后库存超过馆藏</td><td>重复归还或并发归还导致多次 +1</td><td>过程先校验 <code>status &lt;&gt; 'returned'</code>，触发器用 <code>LEAST(total, available + 1)</code> 兜底</td></tr>
+          <tr><td>本地存储容量不足</td><td>Base64 图片与全量快照体积较大，localStorage 配额约 5 MB</td><td>限制单图 512 KB、备份最多 4 份；图片只在需要时生成；异常时提示并保留内存态</td></tr>
+          <tr><td>ObjectURL 内存泄漏</td><td>每次渲染都创建新的 Blob URL 且未释放</td><td>按图书 ID 缓存 URL；替换封面时先 <code>revokeObjectURL</code>；页面卸载时统一释放</td></tr>
+          <tr><td>主备切换后前端仍连旧节点</td><td>连接串只配置了一个主机，故障后无法重路由</td><td>连接串配置两个主机 + <code>target_session_attrs=read-write</code>；前端展示主节点状态与重连事件</td></tr>
+          <tr><td>MD5 不足以保护密码</td><td>MD5 无盐、易碰撞，彩虹表可反查弱密码</td><td>课程按 MD5 演示；文档明确生产改用 bcrypt/Argon2 + 盐 + HTTPS，并限制登录失败次数</td></tr>
+          <tr><td>CSV 中文乱码</td><td>Excel 默认按本地编码打开无 BOM 的 UTF-8</td><td>导出内容加 UTF-8 BOM；导入时去掉 BOM 并兼容 CRLF/LF</td></tr>
+          <tr><td>导入重复图书</td><td>CSV 没有统一主键，重复导入产生副本</td><td>按图书编号或“书名 + 作者”匹配，存在则更新、不存在则新增，并返回新增/更新/失败统计</td></tr>
+        </tbody>
+      </table>
+
+      <h3 id="teamwork">4.3 小组合作的方法</h3>
+      <p>小组按“数据库设计、后端接口、前端交互、测试与文档”四条线分工，但保持交叉评审，避免出现只有一个人理解全局的情况。建议在提交前把下表姓名替换为实际成员。</p>
+      <table>
+        <thead><tr><th style="width:18%">角色</th><th style="width:24%">主要职责</th><th>交付物</th></tr></thead>
+        <tbody>
+          <tr><td>组长 / 数据库设计</td><td>需求拆解、ER 图、关系模式、触发器与存储过程、主备方案</td><td>schema.sql、设计文档第 2–3 章、答辩主讲</td></tr>
+          <tr><td>后端 / 高可用</td><td>接口与鉴权、备份恢复流程、主备切换脚本、审计</td><td>API 说明、备份/切换演示、问题清单</td></tr>
+          <tr><td>前端 / 交互</td><td>读者门户、注册登录、读者评价、公告、控制台、SQL 实验台、导入导出</td><td>页面与交互、演示脚本、截图/录屏</td></tr>
+          <tr><td>测试 / 文档</td><td>用例与边界测试、数据准备、文档排版、演示彩排</td><td>测试记录、演示账号、最终 PDF/视频</td></tr>
+        </tbody>
+      </table>
+      <ul>
+        <li><b>协作节奏：</b>每周一次 30 分钟站会同步进度与阻塞；需求变更先改文档再改代码；演示前至少完整彩排两次。</li>
+        <li><b>版本管理：</b>Git 分支按功能拆分（<code>feature/borrow</code>、<code>feature/ha</code>），提交信息写清“做了什么、为什么”；合并前互相 Review。</li>
+        <li><b>接口契约：</b>先确定表结构与接口字段，再并行开发；用固定演示数据（12 本书、7 个用户、22 条在借）保证每人环境一致。</li>
+        <li><b>知识共享：</b>数据库同学给前端讲触发器和事务，前端同学给数据库同学讲交互与错误提示；答辩前每人能独立完成整套演示。</li>
+        <li><b>复盘：</b>每次演示后记录卡顿点与老师提问，形成问题清单并在下一次迭代修复。</li>
+      </ul>
+
+      <h3 id="demo">4.4 现场演示与录屏脚本</h3>
+      <p>建议总时长 8–10 分钟，按“业务 → 数据库 → 高可用 → 运维”的顺序讲，避免一上来陷入代码细节。演示前先重置数据，保证库存与借阅数量一致。</p>
+      <table>
+        <thead><tr><th style="width:8%">时间</th><th style="width:24%">画面</th><th>操作与讲解要点</th></tr></thead>
+        <tbody>
+          <tr><td>0:00</td><td>首页 / 全部图书</td><td>介绍BIT书屋、馆藏统计、公告、新上架与热门排行；进入全部图书页演示关键词搜索与分类筛选。</td></tr>
+          <tr><td>0:50</td><td>登录</td><td>分别用 reader / librarian / admin 登录，展示密码 MD5 实时预览；说明数据库只存摘要。</td></tr>
+          <tr><td>2:00</td><td>借阅 / 归还</td><td>reader 借一本热门书，指出库存 -1、借阅号生成；到“我的借阅”归还，库存恢复；打开审计日志看到触发器留痕。</td></tr>
+          <tr><td>3:10</td><td>RBAC</td><td>librarian 登录：能看到图书/借阅/评价/公告与用户页面，但只能编辑本人和读者资料、批量注册读者，账号不可修改；reader 访问控制台被拒绝。展示权限矩阵与数据库 IAM 账户。</td></tr>
+          <tr><td>4:10</td><td>数据库实验台</td><td>切换四种联查场景，展示参数化 SQL、结果网格与执行计划；调用 sp_borrow_book / sp_overdue_check；展开触发器定义。</td></tr>
+          <tr><td>5:20</td><td>读者评价 / 公告 / 导入导出</td><td>归还一本书后打星并提交评价，观察图书十分制得分变化；管理员发布公告并在首页查看；导出一份 CSV 并预览导入模板。</td></tr>
+          <tr><td>6:20</td><td>备份恢复</td><td>创建快照 → 修改一本书 → 恢复快照，展示数据回滚；说明按钮在前端、执行在服务器。</td></tr>
+          <tr><td>7:20</td><td>主备服务器</td><td>展示拓扑与心跳；点击“模拟关闭主服务器”，观察 5 步自动转移，节点 B 变为主节点；点“恢复节点”让 A 以备节点回归；再演示手动切换。</td></tr>
+          <tr><td>8:40</td><td>总结</td><td>回到运营概览，播放业务流程动画；用审计日志收尾，强调一致性、可追溯与高可用。</td></tr>
+        </tbody>
+      </table>
+      <div class="callout">录屏建议：浏览器缩放 90%，关闭无关标签页；每段操作前先说“现在演示……”，操作后停顿 1 秒让结果可见；把演示账号与密码贴在镜头外的便签上，避免现场输入错误。</div>
+
+      <h3 id="limits">4.5 不足与改进</h3>
+      <ul>
+        <li>当前为纯前端演示，数据库、主备与备份均为浏览器内模拟；生产版本需接入真实后端与 GaussDB，前端只保留接口调用。</li>
+        <li>MD5 仅满足课程要求，生产应改为 bcrypt/Argon2 + 盐，并增加登录限流、验证码与会话过期。</li>
+        <li>主备切换演示未覆盖脑裂、双主、复制延迟过大等异常；生产需接入 DCS/etcd 仲裁与监控告警。</li>
+        <li>评价与公告均为演示级实现；生产环境应增加敏感词审核、评价申诉与公告受众范围控制。</li>
+        <li>权限校验目前由前端模拟，真实系统必须在后端接口逐项校验，并记录失败审计。</li>
+      </ul>
+
+      <h2 id="appendix">附录</h2>
+      <h3>A. 演示账号</h3>
+      <table>
+        <thead><tr><th>账号</th><th>密码</th><th>角色</th><th>可演示内容</th></tr></thead>
+        <tbody>
+          <tr><td>admin</td><td>admin123</td><td>超级管理员</td><td>全部功能：用户、备份、主备、审计</td></tr>
+          <tr><td>librarian</td><td>lib123</td><td>图书管理员</td><td>图书、借阅、SQL 实验台、导入导出</td></tr>
+          <tr><td>reader</td><td>read123</td><td>读者</td><td>浏览、借阅、归还、我的借阅</td></tr>
+        </tbody>
+      </table>
+      <h3>B. 交付物</h3>
+      <ul>
+        <li><code>index.html</code>、<code>styles.css</code>、<code>src/**</code>（Vue 3）、<code>db.js</code>、<code>console*.js</code>：可运行系统。</li>
+        <li><code>docs.html</code>：本文档，可打印为 PDF。</li>
+        <li><code>docs/tata-db-course-design.md</code>：Markdown 版本，便于提交与版本管理。</li>
+        <li><code>db/schema.sql</code>：GaussDB/openGauss 建表、索引、触发器、存储过程、IAM 账户与主备配置示例。</li>
+      </ul>
+      <h3>C. 运行方式</h3>
+      <p>静态站点，无需构建。在项目目录启动任意静态服务器（例如 <code>npx serve -s . -l 30001</code>），访问首页即可；所有数据保存在浏览器 localStorage，可在“导入导出 → 重置演示数据”恢复初始状态。</p>
+
+      <div class="footer-doc">
+        <span>BIT书屋 · 图书借阅管理系统设计文档</span>
+        <span>数据库课程设计 · 2026</span>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

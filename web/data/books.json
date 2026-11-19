@@ -1,0 +1,340 @@
+{
+  "generatedAt": "2026-11-17",
+  "source": "catalog schema snapshot",
+  "categories": [
+    {
+      "name": "科幻",
+      "count": 1
+    },
+    {
+      "name": "文学",
+      "count": 3
+    },
+    {
+      "name": "历史",
+      "count": 2
+    },
+    {
+      "name": "科技",
+      "count": 4
+    },
+    {
+      "name": "商业",
+      "count": 2
+    },
+    {
+      "name": "心理",
+      "count": 2
+    }
+  ],
+  "books": [
+    {
+      "id": "b-santi",
+      "bookId": 5,
+      "title": "三体",
+      "author": "刘慈欣",
+      "authors": [
+        "刘慈欣"
+      ],
+      "category": "科幻",
+      "isbn": "978-7-5366-9293-0",
+      "publisher": "重庆出版社",
+      "year": 2008,
+      "total": 6,
+      "rating": 4.9,
+      "borrows": 328,
+      "colors": [
+        "#0e1b2b",
+        "#2c5364"
+      ],
+      "desc": "地球文明与三体文明的第一次接触，宏大的宇宙社会学寓言。",
+      "coverUrl": ""
+    },
+    {
+      "id": "b-huozhe",
+      "bookId": 2,
+      "title": "活着",
+      "author": "余华",
+      "authors": [
+        "余华"
+      ],
+      "category": "文学",
+      "isbn": "978-7-5063-6543-7",
+      "publisher": "作家出版社",
+      "year": 2012,
+      "total": 5,
+      "rating": 4.8,
+      "borrows": 296,
+      "colors": [
+        "#5c1f18",
+        "#a8412f"
+      ],
+      "desc": "以福贵的一生，讲述人如何承受苦难并继续活着。",
+      "coverUrl": ""
+    },
+    {
+      "id": "b-bainian",
+      "bookId": 6,
+      "title": "百年孤独",
+      "author": "加西亚·马尔克斯",
+      "authors": [
+        "加西亚·马尔克斯"
+      ],
+      "category": "文学",
+      "isbn": "978-7-5442-5399-4",
+      "publisher": "南海出版公司",
+      "year": 2011,
+      "total": 4,
+      "rating": 4.7,
+      "borrows": 271,
+      "colors": [
+        "#6b4a14",
+        "#c08a2e"
+      ],
+      "desc": "布恩迪亚家族七代人的传奇，魔幻现实主义的巅峰之作。",
+      "coverUrl": ""
+    },
+    {
+      "id": "b-renleijianshi",
+      "bookId": 7,
+      "title": "人类简史",
+      "author": "尤瓦尔·赫拉利",
+      "authors": [
+        "尤瓦尔·赫拉利"
+      ],
+      "category": "历史",
+      "isbn": "978-7-5086-4424-4",
+      "publisher": "中信出版社",
+      "year": 2014,
+      "total": 5,
+      "rating": 4.6,
+      "borrows": 254,
+      "colors": [
+        "#6d4c1e",
+        "#b98a3f"
+      ],
+      "desc": "从认知革命到科学革命，重新理解智人的崛起。",
+      "coverUrl": ""
+    },
+    {
+      "id": "b-suanfa",
+      "bookId": 8,
+      "title": "算法导论",
+      "author": "Thomas H. Cormen",
+      "authors": [
+        "Thomas H. Cormen"
+      ],
+      "category": "科技",
+      "isbn": "978-7-111-40701-0",
+      "publisher": "机械工业出版社",
+      "year": 2013,
+      "total": 3,
+      "rating": 4.7,
+      "borrows": 239,
+      "colors": [
+        "#173b2f",
+        "#2f6b4f"
+      ],
+      "desc": "算法领域的经典教材，覆盖排序、图论与动态规划。",
+      "coverUrl": ""
+    },
+    {
+      "id": "b-csapp",
+      "bookId": 9,
+      "title": "深入理解计算机系统",
+      "author": "Randal E. Bryant",
+      "authors": [
+        "Randal E. Bryant"
+      ],
+      "category": "科技",
+      "isbn": "978-7-111-54493-7",
+      "publisher": "机械工业出版社",
+      "year": 2016,
+      "total": 4,
+      "rating": 4.8,
+      "borrows": 226,
+      "colors": [
+        "#1f2937",
+        "#4b5d70"
+      ],
+      "desc": "从程序员视角贯通硬件、操作系统与编译系统。",
+      "coverUrl": ""
+    },
+    {
+      "id": "b-qiongchali",
+      "bookId": 10,
+      "title": "穷查理宝典",
+      "author": "查理·芒格",
+      "authors": [
+        "查理·芒格"
+      ],
+      "category": "商业",
+      "isbn": "978-7-5086-9356-2",
+      "publisher": "中信出版社",
+      "year": 2018,
+      "total": 3,
+      "rating": 4.6,
+      "borrows": 198,
+      "colors": [
+        "#4a2c1a",
+        "#8a5a32"
+      ],
+      "desc": "芒格的多元思维模型与投资智慧合集。",
+      "coverUrl": ""
+    },
+    {
+      "id": "b-yuanze",
+      "bookId": 11,
+      "title": "原则",
+      "author": "瑞·达利欧",
+      "authors": [
+        "瑞·达利欧"
+      ],
+      "category": "商业",
+      "isbn": "978-7-5086-8403-5",
+      "publisher": "中信出版社",
+      "year": 2018,
+      "total": 4,
+      "rating": 4.5,
+      "borrows": 187,
+      "colors": [
+        "#243b53",
+        "#486581"
+      ],
+      "desc": "桥水基金创始人的生活与工作原则。",
+      "coverUrl": ""
+    },
+    {
+      "id": "b-beitaoyan",
+      "bookId": 12,
+      "title": "被讨厌的勇气",
+      "author": "岸见一郎",
+      "authors": [
+        "岸见一郎"
+      ],
+      "category": "心理",
+      "isbn": "978-7-111-49541-8",
+      "publisher": "机械工业出版社",
+      "year": 2015,
+      "total": 5,
+      "rating": 4.6,
+      "borrows": 176,
+      "colors": [
+        "#134e4a",
+        "#2c7a7b"
+      ],
+      "desc": "以对话形式阐释阿德勒心理学与课题分离。",
+      "coverUrl": ""
+    },
+    {
+      "id": "b-sikao",
+      "bookId": 13,
+      "title": "思考，快与慢",
+      "author": "丹尼尔·卡尼曼",
+      "authors": [
+        "丹尼尔·卡尼曼"
+      ],
+      "category": "心理",
+      "isbn": "978-7-5086-3312-9",
+      "publisher": "中信出版社",
+      "year": 2012,
+      "total": 3,
+      "rating": 4.5,
+      "borrows": 165,
+      "colors": [
+        "#3b2a52",
+        "#6b4f8a"
+      ],
+      "desc": "系统 1 与系统 2，揭示人类判断中的偏差。",
+      "coverUrl": ""
+    },
+    {
+      "id": "b-wanli",
+      "bookId": 14,
+      "title": "万历十五年",
+      "author": "黄仁宇",
+      "authors": [
+        "黄仁宇"
+      ],
+      "category": "历史",
+      "isbn": "978-7-1010-5008-5",
+      "publisher": "中华书局",
+      "year": 2007,
+      "total": 4,
+      "rating": 4.7,
+      "borrows": 152,
+      "colors": [
+        "#5a2a1e",
+        "#a05a3c"
+      ],
+      "desc": "从平淡的一年切入，透视明代政治与社会结构。",
+      "coverUrl": ""
+    },
+    {
+      "id": "b-yueliang",
+      "bookId": 15,
+      "title": "月亮与六便士",
+      "author": "毛姆",
+      "authors": [
+        "毛姆"
+      ],
+      "category": "文学",
+      "isbn": "978-7-5339-3564-2",
+      "publisher": "浙江文艺出版社",
+      "year": 2017,
+      "total": 4,
+      "rating": 4.6,
+      "borrows": 143,
+      "colors": [
+        "#1e2a4a",
+        "#3f5a8a"
+      ],
+      "desc": "在满地六便士的时代，抬头看见月亮。",
+      "coverUrl": ""
+    },
+    {
+      "id": "b-shujuku",
+      "bookId": 16,
+      "title": "数据库系统概论",
+      "author": "王珊",
+      "authors": [
+        "王珊"
+      ],
+      "category": "科技",
+      "isbn": "978-7-04-040664-1",
+      "publisher": "高等教育出版社",
+      "year": 2014,
+      "total": 6,
+      "rating": 4.7,
+      "borrows": 0,
+      "colors": [
+        "#20343e",
+        "#3f6a78"
+      ],
+      "desc": "数据库原理、关系代数、SQL、事务与并发控制的经典教材。新书到馆后先入仓库，验收上架后再开放借阅。",
+      "coverUrl": ""
+    },
+    {
+      "id": "b-ai",
+      "bookId": 17,
+      "title": "人工智能：一种现代的方法",
+      "author": "Stuart Russell",
+      "authors": [
+        "Stuart Russell"
+      ],
+      "category": "科技",
+      "isbn": "978-7-302-33199-2",
+      "publisher": "清华大学出版社",
+      "year": 2013,
+      "total": 4,
+      "rating": 4.8,
+      "borrows": 0,
+      "colors": [
+        "#2b2140",
+        "#5d4a86"
+      ],
+      "desc": "搜索、知识表示、机器学习与机器人学的系统教材。当前处于仓库待上架状态。",
+      "coverUrl": ""
+    }
+  ]
+}

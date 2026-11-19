@@ -61,6 +61,44 @@ public class LoanController {
   valid(db.queryForObject("select count(*) from loan.book_snapshot where book_id=?",Integer.class,c.bookId())==1);
   return db.queryForMap("insert into loan.book_copy(copy_id,book_id,barcode,status,updated_at) values(?,?,?,'AVAILABLE',clock_timestamp()) returning *",Ids.next(),c.bookId(),c.barcode());
  }
+ public record BatchCopy(long bookId,String title,String isbn,int count) {}
+ /**
+  * 批量补登副本：把某本书的副本数补齐到 count（已有册数不退不删），
+  * 一次事务内完成 snapshot upsert + 若干 insert，条码形如 B{bookId}-{序号}。
+  * 导入 CSV 带 copies 列时前端只调一次，不必按册发 N 个请求。
+  */
+ @PostMapping("/copies/batch") Object copiesBatch(@RequestHeader(value="Authorization",required=false) String token,@RequestBody BatchCopy b){
+  User u=user(token);staff(u);
+  valid(b.bookId()>0&&b.count()>=0&&b.count()<=50);
+  valid(b.title()!=null&&!b.title().isBlank()&&b.title().length()<=200&&b.isbn()!=null&&b.isbn().length()<=32);
+  return sessions.transaction(u.id(),db->{
+   db.execute("lock table loan.book_snapshot in exclusive mode");
+   if(db.update("update loan.book_snapshot set title=?,isbn=?,updated_at=clock_timestamp() where book_id=?",b.title(),b.isbn(),b.bookId())==0)
+    db.update("insert into loan.book_snapshot values(?,?,?,clock_timestamp())",b.bookId(),b.title(),b.isbn());
+
+   db.execute("lock table loan.book_copy in exclusive mode");
+   List<String> codes=db.queryForList("select barcode from loan.book_copy where book_id=?",String.class,b.bookId());
+   int have=codes.size();
+   int next=0;   // 该书上已有条码的最大序号，新条码从这里往后排
+   for(String code:codes){
+    int dash=code.lastIndexOf('-');
+    if(dash<0||dash==code.length()-1)continue;
+    try{next=Math.max(next,Integer.parseInt(code.substring(dash+1)));}catch(NumberFormatException ignored){}
+   }
+   int created=0;
+   for(int i=have;i<b.count();i++){
+    String barcode="B"+b.bookId()+"-"+(++next);
+    // 条码全局唯一：撞上别的书的条码就跳号重试
+    while(db.queryForObject("select count(*) from loan.book_copy where barcode=?",Integer.class,barcode)>0)
+     barcode="B"+b.bookId()+"-"+(++next);
+    db.update("insert into loan.book_copy(copy_id,book_id,barcode,status,updated_at) values(?,?,?,'AVAILABLE',clock_timestamp())",Ids.next(),b.bookId(),barcode);
+    created+=1;
+   }
+   Map<String,Object> out=new LinkedHashMap<>();
+   out.put("bookId",b.bookId());out.put("before",have);out.put("created",created);out.put("total",have+created);
+   return out;
+  });
+ }
  @PutMapping("/book-snapshots") Object snapshot(@RequestHeader(value="Authorization",required=false) String token,@RequestBody Snapshot b){
   User u=user(token);staff(u);valid(b.bookId()>0&&b.title()!=null&&!b.title().isBlank()&&b.title().length()<=200&&b.isbn()!=null&&b.isbn().length()<=32);
   return sessions.transaction(u.id(),db->{
@@ -83,17 +121,20 @@ public class LoanController {
   User u=user(token);if(all)staff(u);
   return sessions.db(u.id()).queryForList("select l.*,b.title,c.barcode,(l.status='BORROWED' and l.due_at<localtimestamp) as overdue from loan.loan_record l join loan.book_copy c on c.copy_id=l.copy_id join loan.book_snapshot b on b.book_id=l.book_id where l.loan_id>? and not l.deleted"+(all?"":" and l.user_id=?")+" order by l.loan_id limit 100",all?new Object[]{after}:new Object[]{after,u.id()});
  }
+ @GetMapping("/borrow-counts") Object borrowCounts(){
+  return sessions.db(1).queryForList("select book_id,count(*) as borrows from loan.loan_record where not deleted group by book_id order by book_id");
+ }
  @PostMapping("/loans") Object borrow(@RequestHeader(value="Authorization",required=false) String token,@RequestBody Borrow b){
   User u=user(token);key(b.requestKey());if(b.readerId()!=u.id())staff(u);valid(b.copyId()>0&&b.readerId()>0&&b.days()>=1&&b.days()<=30);
   return sessions.transaction(u.id(),db->{
-   db.update("call loan.sp_borrow_copy(?,?,?,?,?)",b.readerId(),b.copyId(),b.days(),b.requestKey(),Ids.next());
+   db.query("call loan.sp_borrow_copy(?,?,?,?,?)",rs->null,b.readerId(),b.copyId(),b.days(),b.requestKey(),Ids.next());
    return result(db,u.id(),b.requestKey());
   });
  }
  @PostMapping("/loans/{id}/return") Object giveBack(@RequestHeader(value="Authorization",required=false) String token,@PathVariable long id,@RequestBody Return r){
   User u=user(token);key(r.requestKey());valid(id>0);
   return sessions.transaction(u.id(),db->{
-   db.update("call loan.sp_return_copy(?,?)",id,r.requestKey());
+   db.query("call loan.sp_return_copy(?,?)",rs->null,id,r.requestKey());
    return result(db,u.id(),r.requestKey());
   });
  }
