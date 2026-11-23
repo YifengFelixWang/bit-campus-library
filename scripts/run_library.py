@@ -1,7 +1,8 @@
-"""Start the four local processes for the shared campus library project."""
+"""Start identity, catalog, loan, report, and the web process for the shared campus library project."""
 import argparse
 import json
 import os
+import secrets
 from pathlib import Path
 import shutil
 import socket
@@ -17,8 +18,9 @@ JARS = {
     "identity": "identity-service-1.0.0.jar",
     "catalog": "catalog-service-0.1.0.jar",
     "loan": "loan-service-1.0.0.jar",
+    "report": "report-service-1.0.0.jar",
 }
-PORTS = {"web": 8080, "identity": 18081, "catalog": 8082, "loan": 18083}
+PORTS = {"web": 8080, "identity": 18081, "catalog": 8082, "loan": 18083, "report": 18084}
 
 def read_env(path):
     values = {}
@@ -36,14 +38,17 @@ def settings(path):
     env = {**read_env(path), **os.environ}
     shared = env.get("LIBRARY_LOCAL_PASSWORD", "")
     for role in ("IAM_DB", "CATALOG_DB_READER01", "CATALOG_DB_READER02", "CATALOG_DB_LIBRARIAN01",
-                 "LOAN_DB_READER01", "LOAN_DB_READER02", "LOAN_DB_LIBRARIAN01"):
+                 "LOAN_DB_READER01", "LOAN_DB_READER02", "LOAN_DB_LIBRARIAN01",
+                 "REPORT_DB_ANALYST", "REPORT_DB_SYNC"):
         key = role + "_PASSWORD"
         env[key] = env.get(key) or shared
         if not env[key]:
             raise ValueError(f"Set {key} or LIBRARY_LOCAL_PASSWORD in {path}")
     urls = {name: f"http://127.0.0.1:{port}" for name, port in PORTS.items()}
+    env["REPORT_SYNC_TOKEN"] = env.get("REPORT_SYNC_TOKEN") or secrets.token_urlsafe(32)
     env.update(IDENTITY_URL=urls["identity"] + "/users/me", IDENTITY_SERVICE_URL=urls["identity"],
                LOAN_SERVICE_URL=urls["loan"], CATALOG_SERVICE_URL=urls["catalog"],
+               REPORT_SERVICE_URL=urls["report"],
                CATALOG_COVER_DIR=str(ROOT / "web/covers"), SERVER_ADDRESS="127.0.0.1")
     for key in ("IAM_DB_URL", "CATALOG_DB_URL", "LOAN_DB_URL"):
         env.setdefault(key, env.get("LIBRARY_JDBC_URL") or "jdbc:opengauss://127.0.0.1:15432/library")
@@ -74,7 +79,7 @@ def check_processes(processes):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--env-file", type=Path, default=ROOT / "database/opengauss/.env")
-    parser.add_argument("--build", action="store_true", help="Rebuild all three Java applications")
+    parser.add_argument("--build", action="store_true", help="Rebuild every Java application")
     args = parser.parse_args()
     env = settings(args.env_file)
     java_dir = Path(env["JAVA_HOME"]) / "bin" if env.get("JAVA_HOME") else None
@@ -102,7 +107,8 @@ def main():
                 command.insert(1, "-Dmaven.repo.local=" + env["MAVEN_REPO_LOCAL"])
             subprocess.run(command, env=env, cwd=ROOT, check=True)
         jars[name] = jar
-    paths = {"identity": "/", "catalog": "/api/catalog/health", "loan": "/api/health", "web": "/"}
+    paths = {"identity": "/auth/ready", "catalog": "/api/catalog/health", "loan": "/api/health",
+             "report": "/api/reports/health", "web": "/"}
     with ExitStack() as stack:
         processes = {name: start(stack, [java, "-jar", str(jar), f"--server.port={PORTS[name]}"],
                                  env, name) for name, jar in jars.items()}
@@ -115,7 +121,8 @@ def main():
             for name in list(pending):
                 try:
                     with urlopen(f"http://127.0.0.1:{PORTS[name]}{paths[name]}", timeout=1) as response:
-                        if name == "catalog" and json.load(response).get("status") != "UP":
+                        health_field = {"catalog": "status", "report": "database"}.get(name)
+                        if health_field and json.load(response).get(health_field) != "UP":
                             continue
                         pending.remove(name)
                 except (URLError, TimeoutError, ConnectionError):

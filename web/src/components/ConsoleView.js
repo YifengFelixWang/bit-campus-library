@@ -101,7 +101,7 @@ export default {
       loadConsole().then(function () {
         ready.value = true;
         error.value = "";
-        mount(tab);
+        mount(route.tab);
       }).catch(function (err) {
         error.value = err && err.message ? err.message : String(err);
         toast("管理控制台加载失败，请刷新页面重试", "error");
@@ -156,7 +156,7 @@ export default {
               <small>DATABASE COURSE DESIGN</small>
             </div>
           </div>
-          <nav class="side-nav" id="consoleNavList" aria-label="控制台导航">
+          <nav v-show="ready" class="side-nav" id="consoleNavList" aria-label="控制台导航">
             <button type="button" class="side-link" data-tab="overview" data-perm="borrow:read"><svg class="icon"><use href="#i-grid"></use></svg>运营概览</button>
             <button type="button" class="side-link" data-tab="books" data-perm="book:read"><svg class="icon"><use href="#i-book"></use></svg>图书管理</button>
             <button type="button" class="side-link" data-tab="borrows" data-perm="borrow:read"><svg class="icon"><use href="#i-swap"></use></svg>借阅管理</button>
@@ -164,6 +164,9 @@ export default {
             <button type="button" class="side-link" data-tab="announcements" data-perm="announcement:write"><svg class="icon"><use href="#i-log"></use></svg>公告管理</button>
             <button type="button" class="side-link" data-tab="users" data-perm="user:read"><svg class="icon"><use href="#i-users"></use></svg>用户与权限</button>
             <button type="button" class="side-link" data-tab="dblab" data-perm="db:query"><svg class="icon"><use href="#i-db"></use></svg>数据库实验台</button>
+            <button type="button" class="side-link" data-tab="report-query" data-perm="report:read"><svg class="icon"><use href="#i-doc"></use></svg>报表查询</button>
+            <button type="button" class="side-link" data-tab="report-stats" data-perm="report:read"><svg class="icon"><use href="#i-grid"></use></svg>借阅统计</button>
+            <button type="button" class="side-link" data-tab="report-export" data-perm="report:read"><svg class="icon"><use href="#i-data"></use></svg>统计导出</button>
             <button type="button" class="side-link" data-tab="data" data-perm="data:export"><svg class="icon"><use href="#i-data"></use></svg>导入导出</button>
             <button type="button" class="side-link" data-tab="backup" data-perm="backup:manage"><svg class="icon"><use href="#i-archive"></use></svg>备份与恢复</button>
             <button type="button" class="side-link" data-tab="servers" data-perm="server:manage"><svg class="icon"><use href="#i-server"></use></svg>主备服务器</button>

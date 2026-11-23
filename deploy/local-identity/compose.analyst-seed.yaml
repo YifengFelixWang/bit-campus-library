@@ -1,0 +1,4 @@
+services:
+  identity-service:
+    environment:
+      IAM_SEED_ANALYST01_PASSWORD: ${IAM_SEED_ANALYST01_PASSWORD:?Set the analyst01 application password}

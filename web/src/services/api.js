@@ -215,10 +215,11 @@ function applyCopies(rows) {
 }
 
 /** 拉全量书目：/books 单页最多 100 条（BookQuery.MAX_SIZE），馆藏超 100 种时必须翻页取完 */
-async function fetchAllBooks() {
+async function fetchAllBooks(categoryId) {
   const out = [];
+  const category = categoryId ? "&categoryId=" + encodeURIComponent(categoryId) : "";
   for (let page = 1; page <= 200; page += 1) {
-    const body = unwrap(await getJson("/api/catalog/books?page=" + page + "&size=100")) || {};
+    const body = unwrap(await getJson("/api/catalog/books?page=" + page + "&size=100" + category)) || {};
     const items = body.items || [];
     out.push.apply(out, items);
     const totalPages = Number(body.totalPages) || 0;
@@ -848,6 +849,86 @@ export const api = {
 
   templateUrl: function () {
     return "/api/catalog/books/import-template";
+  },
+
+  reportBookOptions: fetchAllBooks,
+
+  async reportQuery(body) {
+    const payload = body || {};
+    const req = {};
+    ["categoryId", "bookId", "status", "from", "to", "sortBy", "sortOrder"].forEach(function (key) {
+      const v = payload[key];
+      if (v !== undefined && v !== null && v !== "") req[key] = v;
+    });
+    try {
+      const res = await fetch("/api/reports/query", {
+        method: "POST",
+        headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+        body: JSON.stringify(req)
+      });
+      const data = await res.json().catch(function () { return null; });
+      if (!res.ok) {
+        if (res.status === 401 && window.TataUI && window.TataUI.openLogin) window.TataUI.openLogin();
+        return { ok: false, message: (data && data.message) || ("HTTP " + res.status) };
+      }
+      const unpacked = data && Object.prototype.hasOwnProperty.call(data, "data") ? data.data : data;
+      return { ok: true, data: unpacked };
+    } catch (e) {
+      return { ok: false, message: e.message };
+    }
+  },
+
+  async reportStats(params) {
+    const p = params || {};
+    const qs = new URLSearchParams();
+    ["categoryId", "bookId", "from", "to"].forEach(function (key) {
+      const v = p[key];
+      if (v !== undefined && v !== null && v !== "") qs.set(key, v);
+    });
+    const suffix = qs.toString() ? "?" + qs.toString() : "";
+    try {
+      const body = await getJson("/api/reports/stats" + suffix);
+      const data = unwrap(body);
+      return { ok: true, data: data };
+    } catch (e) {
+      if (e.status === 401 && window.TataUI && window.TataUI.openLogin) window.TataUI.openLogin();
+      return { ok: false, message: e.message };
+    }
+  },
+
+  async reportExport(params) {
+    const p = params || {};
+    const qs = new URLSearchParams();
+    ["categoryId", "bookId", "status", "from", "to", "sortBy", "sortOrder"].forEach(function (key) {
+      const v = p[key];
+      if (v !== undefined && v !== null && v !== "") qs.set(key, v);
+    });
+    const suffix = qs.toString() ? "?" + qs.toString() : "";
+    try {
+      const res = await fetch("/api/reports/export" + suffix, { headers: authHeaders() });
+      if (!res.ok) {
+        if (res.status === 401 && window.TataUI && window.TataUI.openLogin) window.TataUI.openLogin();
+        let message = "HTTP " + res.status;
+        try {
+          const err = await res.json();
+          if (err && err.message) message = err.message;
+        } catch (ignore) { /* 非 JSON 响应 */ }
+        return { ok: false, message: message };
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "report.csv";
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, message: e.message };
+    }
   }
 };
 

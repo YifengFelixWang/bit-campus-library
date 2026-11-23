@@ -1,12 +1,11 @@
 import { installTataUI } from "../core/tata-ui.js";
 
 // 版本号统一提升，避免浏览器继续用旧的 console-*.js 缓存
-const V = "?v=20261119w";
+const V = "?v=20261123-report";
 
 let loading = null;
 
 export function loadConsole() {
-  if (window.TataConsole) return Promise.resolve(window.TataConsole);
   if (loading) return loading;
   installTataUI();
   loading = import("../../console.js" + V)

@@ -7,6 +7,7 @@
 
 路由规则与 deploy/nginx.conf 一致：
     /api/catalog/**  -> 127.0.0.1:8082  (catalog-service)
+    /api/reports/**  -> 127.0.0.1:18084 (report-service)
     /api/**          -> 127.0.0.1:8083  (loan-service)
     /users/**        -> 127.0.0.1:8081  (identity-service)
     其他             -> web/ 下的静态文件
@@ -28,6 +29,7 @@ ROUTES = [
     ("/api/catalog/", os.getenv("CATALOG_SERVICE_URL", "http://127.0.0.1:8082")),
     ("/auth/", os.getenv("IDENTITY_SERVICE_URL", "http://127.0.0.1:8081")),
     ("/users/", os.getenv("IDENTITY_SERVICE_URL", "http://127.0.0.1:8081")),
+    ("/api/reports/", os.getenv("REPORT_SERVICE_URL", "http://127.0.0.1:18084")),
     ("/api/", os.getenv("LOAN_SERVICE_URL", "http://127.0.0.1:8083")),
 ]
 
@@ -125,7 +127,7 @@ def main():
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     print("前端服务已启动：http://localhost:%d" % port)
     print("  静态目录：%s" % ROOT)
-    print("  /api/catalog/ -> 8082   /api/ -> 8083   /users/ -> 8081")
+    print("  /api/catalog/ -> 8082   /api/reports/ -> 18084   /api/ -> 8083   /users/ -> 8081")
     print("按 Ctrl+C 停止")
     try:
         server.serve_forever()

@@ -1,4 +1,7 @@
 services:
+  identity-service:
+    environment:
+      REPORT_SYNC_TOKEN: ${REPORT_SYNC_TOKEN:-}
   catalog-service:
     build: ../../services/catalog-service
     environment:
@@ -9,6 +12,15 @@ services:
       CATALOG_DB_LIBRARIAN01_PASSWORD: ${CATALOG_DB_LIBRARIAN01_PASSWORD:?Set the librarian DB password}
     volumes:
       - ../../web/covers:/app/web/covers
+  report-service:
+    build: ../../services/report-service
+    environment:
+      IDENTITY_URL: http://identity-service:8081/users/me
+      LOAN_SERVICE_URL: http://loan-service:8083
+      LIBRARY_JDBC_URL: ${LIBRARY_JDBC_URL:-jdbc:opengauss://host.docker.internal:15432/library}
+      REPORT_DB_ANALYST_PASSWORD: ${REPORT_DB_ANALYST_PASSWORD:?Set the report analyst DB password}
+      REPORT_DB_SYNC_PASSWORD: ${REPORT_DB_SYNC_PASSWORD:?Set the report sync DB password}
+      REPORT_SYNC_TOKEN: ${REPORT_SYNC_TOKEN:-}
   web:
     image: nginx:alpine
     ports:
@@ -17,6 +29,7 @@ services:
       - catalog-service
       - identity-service
       - loan-service
+      - report-service
     volumes:
       - ../../web:/usr/share/nginx/html:ro
       - ../nginx.conf:/etc/nginx/conf.d/default.conf:ro

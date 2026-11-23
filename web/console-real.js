@@ -20,9 +20,9 @@
           title: "数据分析员工作台",
           desc: "职责：多条件查询、数据导入导出。数据来自 report schema 的四张投影表（由 D 的报表服务提供）。",
           items: [
-            ["多条件查询（分类 / 图书 / 借阅状态 / 日期）", "report-service · D", "PENDING"],
-            ["借阅统计与报表", "report-service · D", "PENDING"],
-            ["书目与借阅导出", "已可用：控制台『数据导入导出』页", "READY"]
+            ["多条件查询（分类 / 图书 / 借阅状态 / 日期）", "report-service · D", "READY", "report-query"],
+            ["借阅统计与报表", "report-service · D", "READY", ["report-stats", "report-export"]],
+            ["书目与借阅导出", "已可用：控制台『数据导入导出』页", "READY", "data"]
           ]
         }
       : {
@@ -42,15 +42,35 @@
       '  <div class="toolbar" style="flex-direction:column;align-items:stretch;gap:10px">',
       cfg.items.map(function (it) {
         var tone = it[2] === "READY" ? "green" : "gray";
+        var nav = "";
+        if (it[2] === "READY" && it[3]) {
+          if (Array.isArray(it[3])) {
+            nav = it[3].map(function (tab) {
+              var label = tab === "report-stats" ? "借阅统计" : (tab === "report-export" ? "统计导出" : tab);
+              return '<button class="btn btn-ghost btn-sm" type="button" data-goto-tab="' + esc(tab) + '">' + esc(label) + "</button>";
+            }).join(" ");
+          } else {
+            nav = '<button class="btn btn-primary btn-sm" type="button" data-goto-tab="' + esc(it[3]) + '">进入</button>';
+          }
+        }
         return '<div style="display:flex;gap:12px;align-items:center;padding:10px 12px;border:1px solid #e3ebf3;border-radius:8px">' +
           C.badge(it[2] === "READY" ? "可用" : "待接入", tone) +
           '<span style="flex:1">' + esc(it[0]) + "</span>" +
-          '<span class="small muted">' + esc(it[1]) + "</span></div>";
+          '<span class="small muted">' + esc(it[1]) + "</span>" +
+          (nav ? '<span style="display:flex;gap:6px;flex-wrap:wrap">' + nav + "</span>" : "") +
+          "</div>";
       }).join(""),
       "  </div>",
       '  <p class="hint">当前角色不会访问 catalog / loan 的业务数据，只能看到本职责范围内的内容。</p>',
       "</div>"
     ].join("");
+
+    C.body().onclick = function (event) {
+      var btn = event.target.closest("button[data-goto-tab]");
+      if (!btn) return;
+      var tab = btn.getAttribute("data-goto-tab");
+      if (tab) window.location.hash = "#console/" + tab;
+    };
   }
 
   C.registry.overview = async function () {
@@ -458,5 +478,338 @@
       '  <p class="hint">建议 C 提供 GET /api/loans/audit?afterId=&limit=，接入后此处展示审计明细。</p>',
       "</div>"
     ].join("");
+  };
+
+  // ---------------------------------------------------------------- 报表（report-service · D）
+  var REPORT_SEED_CATS = [
+    { categoryId: 1, categoryName: "文学" },
+    { categoryId: 2, categoryName: "计算机" }
+  ];
+  var REPORT_SEED_BOOKS = [
+    { bookId: 1, title: "红楼梦", categoryId: 1 },
+    { bookId: 2, title: "活着", categoryId: 1 },
+    { bookId: 3, title: "围城", categoryId: 1 },
+    { bookId: 4, title: "数据库系统概念", categoryId: 2 }
+  ];
+
+  function reportAuthHeaders() {
+    var t = sessionStorage.getItem("tata-token") || "";
+    return t ? { Authorization: "Bearer " + t } : {};
+  }
+
+  function reportUnwrap(payload) {
+    if (payload && typeof payload === "object" && "code" in payload && "data" in payload) return payload.data;
+    return payload;
+  }
+
+  async function reportFetchJson(url) {
+    var res = await fetch(url, { headers: reportAuthHeaders() });
+    var body = null;
+    try { body = await res.json(); } catch (e) { body = null; }
+    if (!res.ok) {
+      if (res.status === 401 && window.TataUI && window.TataUI.openLogin) window.TataUI.openLogin();
+      throw new Error((body && body.message) || ("HTTP " + res.status));
+    }
+    return reportUnwrap(body);
+  }
+
+  function toReportDateTime(val) {
+    if (!val) return "";
+    var s = String(val).trim();
+    if (s.length === 16) s += ":00";
+    return s;
+  }
+
+  function buildReportFilters(prefix) {
+    var p = prefix || "rq";
+    var categoryId = document.getElementById(p + "Category") ? document.getElementById(p + "Category").value : "";
+    var bookId = document.getElementById(p + "Book") ? document.getElementById(p + "Book").value : "";
+    var statusEl = document.getElementById(p + "Status");
+    var status = statusEl ? statusEl.value : "";
+    var from = toReportDateTime(document.getElementById(p + "From") ? document.getElementById(p + "From").value : "");
+    var to = toReportDateTime(document.getElementById(p + "To") ? document.getElementById(p + "To").value : "");
+    var sortBy = document.getElementById(p + "SortBy") ? document.getElementById(p + "SortBy").value : "";
+    var sortOrder = document.getElementById(p + "SortOrder") ? document.getElementById(p + "SortOrder").value : "";
+    var out = {};
+    if (categoryId) out.categoryId = Number(categoryId);
+    if (bookId) out.bookId = Number(bookId);
+    if (status) out.status = status;
+    if (from) out.from = from;
+    if (to) out.to = to;
+    if (sortBy) out.sortBy = sortBy;
+    if (sortOrder) out.sortOrder = sortOrder;
+    return out;
+  }
+
+  async function loadReportCategories() {
+    try {
+      var rows = await reportFetchJson("/api/catalog/categories");
+      return { list: Array.isArray(rows) ? rows : [], seed: false };
+    } catch (e) {
+      return { list: REPORT_SEED_CATS.slice(), seed: true };
+    }
+  }
+
+  async function loadReportBooks(categoryId) {
+    try {
+      return { list: await api().reportBookOptions(categoryId), seed: false };
+    } catch (e) {
+      var cid = categoryId ? Number(categoryId) : 0;
+      var list = REPORT_SEED_BOOKS.filter(function (b) { return !cid || b.categoryId === cid; });
+      return { list: list, seed: true };
+    }
+  }
+
+  function fillCategorySelect(sel, rows) {
+    if (!sel) return;
+    sel.innerHTML = '<option value="">全部分类</option>' + rows.map(function (c) {
+      return '<option value="' + esc(c.categoryId) + '">' + esc(c.categoryName) + "</option>";
+    }).join("");
+  }
+
+  function fillBookSelect(sel, rows) {
+    if (!sel) return;
+    sel.innerHTML = '<option value="">全部图书</option>' + rows.map(function (b) {
+      return '<option value="' + esc(b.bookId) + '">' + esc(b.title) + "</option>";
+    }).join("");
+  }
+
+  function reportFilterToolbar(prefix, withStatus, withSort) {
+    var p = prefix || "rq";
+    var statusBlock = withStatus
+      ? '<label class="field"><span>借阅状态</span><select class="select" id="' + p + 'Status">' +
+        '<option value="">全部</option><option value="BORROWED">BORROWED</option><option value="RETURNED">RETURNED</option></select></label>'
+      : "";
+    var sortBlock = withSort
+      ? '<label class="field"><span>排序字段</span><select class="select" id="' + p + 'SortBy">' +
+        '<option value="">默认</option>' +
+        '<option value="categoryName">categoryName</option>' +
+        '<option value="title">title</option>' +
+        '<option value="readerName">readerName</option>' +
+        '<option value="borrowedAt">borrowedAt</option>' +
+        '<option value="status">status</option></select></label>' +
+        '<label class="field"><span>方向</span><select class="select" id="' + p + 'SortOrder">' +
+        '<option value="desc" selected>降序 desc</option><option value="asc">升序 asc</option></select></label>'
+      : "";
+    return [
+      '<div class="toolbar" style="flex-wrap:wrap;gap:12px;align-items:flex-end">',
+      '<label class="field"><span>分类</span><select class="select" disabled id="' + p + 'Category"><option value="">全部分类</option></select></label>',
+      '<label class="field"><span>图书</span><select class="select" disabled id="' + p + 'Book"><option value="">全部图书</option></select></label>',
+      statusBlock,
+      '<label class="field"><span>开始时间</span><input class="input" type="datetime-local" id="' + p + 'From"></label>',
+      '<label class="field"><span>结束时间</span><input class="input" type="datetime-local" id="' + p + 'To"></label>',
+      sortBlock,
+      "</div>"
+    ].join("");
+  }
+
+  async function wireReportFilters(prefix, onCategoryChange) {
+    var p = prefix || "rq";
+    var catSel = document.getElementById(p + "Category");
+    var bookSel = document.getElementById(p + "Book");
+    var cats = await loadReportCategories();
+    fillCategorySelect(catSel, cats.list);
+    var books = await loadReportBooks(catSel ? catSel.value : "");
+    fillBookSelect(bookSel, books.list);
+    if (bookSel) bookSel.disabled = false;
+    if (cats.seed || books.seed) {
+      var hint = document.getElementById(p + "SeedHint");
+      if (hint) hint.hidden = false;
+    }
+    if (catSel) {
+      catSel.disabled = false;
+      catSel.onchange = async function () {
+        var selected = catSel.value;
+        fillBookSelect(bookSel, []);
+        if (bookSel) bookSel.disabled = true;
+        var b = await loadReportBooks(selected);
+        if (selected !== catSel.value) return;
+        fillBookSelect(bookSel, b.list);
+        if (bookSel) bookSel.disabled = false;
+        var hint2 = document.getElementById(p + "SeedHint");
+        if (hint2) hint2.hidden = !(cats.seed || b.seed);
+        if (onCategoryChange) onCategoryChange();
+      };
+    }
+  }
+
+  function reportResultStatusBadge(st) {
+    var s = String(st || "").toUpperCase();
+    if (s === "RETURNED") return C.badge("RETURNED", "green");
+    if (s === "BORROWED") return C.badge("BORROWED", "blue");
+    return esc(st);
+  }
+
+  C.registry["report-query"] = async function () {
+    C.setActions("");
+    C.body().innerHTML = [
+      '<div class="panel"><div class="panel-head"><div><h2>报表查询</h2>',
+      "<p>候选项来自书目服务，结果来自报表投影，两边可能短暂不一致。</p></div></div>",
+      '  <p id="rqSeedHint" class="hint" hidden>临时数据</p>',
+      reportFilterToolbar("rq", true, true),
+      '  <div class="toolbar" style="margin-top:8px"><button class="btn btn-primary btn-sm" type="button" id="rqSearch">查询</button></div>',
+      '  <div id="rqTable" style="margin-top:14px"></div>',
+      '  <div class="divider"></div>',
+      '  <label class="field" style="margin-top:12px"><span>sqlTemplate（只读）</span>',
+      '    <textarea class="input" id="rqSql" rows="4" readonly></textarea></label>',
+      '  <label class="field"><span>parameters（只读）</span>',
+      '    <textarea class="input" id="rqParams" rows="3" readonly></textarea></label>',
+      "</div>"
+    ].join("");
+
+    await wireReportFilters("rq");
+
+    var searchBtn = document.getElementById("rqSearch");
+    if (searchBtn) {
+      searchBtn.onclick = async function () {
+        var filters = buildReportFilters("rq");
+        var wrap = document.getElementById("rqTable");
+        if (wrap) wrap.innerHTML = '<p class="hint">查询中…</p>';
+        var res = await api().reportQuery(filters);
+        if (!res.ok) {
+          if (wrap) wrap.innerHTML = '<div class="empty-panel"><h3>查询失败</h3><p>' + esc(res.message) + "</p></div>";
+          return;
+        }
+        var data = res.data || {};
+        var rows = data.rows || [];
+        var cols = [
+          { key: "categoryName", label: "分类" },
+          { key: "title", label: "书名" },
+          { key: "readerName", label: "读者" },
+          { key: "borrowedAt", label: "借阅时间", render: function (r) { return '<span class="nowrap small">' + esc(r.borrowedAt) + "</span>"; } },
+          { key: "status", label: "状态", render: function (r) { return reportResultStatusBadge(r.status); } }
+        ];
+        if (wrap) wrap.innerHTML = C.tableHtml(cols, rows, "没有符合条件的借阅记录");
+        var sqlEl = document.getElementById("rqSql");
+        var parEl = document.getElementById("rqParams");
+        if (sqlEl) sqlEl.value = data.sqlTemplate != null ? String(data.sqlTemplate) : "";
+        if (parEl) parEl.value = data.parameters != null ? JSON.stringify(data.parameters, null, 2) : "";
+      };
+    }
+  };
+
+  C.registry["report-stats"] = async function () {
+    C.setActions("");
+    C.body().innerHTML = [
+      '<div class="panel"><div class="panel-head"><div><h2>借阅统计</h2>',
+      "<p>按分类汇总 loanCount 与 openCount，数据来自报表投影。</p></div></div>",
+      '  <p id="rsSeedHint" class="hint" hidden>临时数据</p>',
+      reportFilterToolbar("rs", false, false),
+      '  <div class="toolbar" style="margin-top:8px"><button class="btn btn-primary btn-sm" type="button" id="rsLoad">刷新统计</button></div>',
+      '  <div id="rsTable" style="margin-top:14px"></div>',
+      '  <div id="rsSyncStatus" style="margin-top:14px"></div>',
+      "</div>"
+    ].join("");
+
+    await wireReportFilters("rs");
+
+    async function loadSyncStatus() {
+      var wrap = document.getElementById("rsSyncStatus");
+      if (!wrap) return;
+      wrap.innerHTML = '<p class="hint">同步状态加载中…</p>';
+      var lagHtml = "";
+      try {
+        var res = await fetch("/api/reports/sync", {
+          method: "POST",
+          headers: Object.assign({ "Content-Type": "application/json" }, reportAuthHeaders())
+        });
+        var body = null;
+        try { body = await res.json(); } catch (e) { body = null; }
+        if (!res.ok) {
+          if (res.status === 401 && window.TataUI && window.TataUI.openLogin) window.TataUI.openLogin();
+          wrap.innerHTML = '<div class="empty-panel"><h3>同步状态读取失败</h3><p>' + esc((body && body.message) || ("HTTP " + res.status)) + "</p></div>";
+          return;
+        }
+        var data = reportUnwrap(body);
+        var sources = (data && Array.isArray(data.sources)) ? data.sources : [];
+        var rows = sources.map(function (s) {
+          var name = s && s.sourceName ? s.sourceName : "—";
+          var status = (name === "iam" || name === "catalog")
+            ? "接口未提供"
+            : ((s && s.status) || "—");
+          var lastOk = (s && s.lastSuccessAt) || "—";
+          var err = (s && s.lastError) || "—";
+          if (name === "loan" && ((s && s.status === "ERROR") || (s && s.lastError))) {
+            lagHtml = '<p class="hint" style="margin-top:8px">统计可能滞后</p>';
+          }
+          return { sourceName: name, status: status, lastSuccessAt: lastOk, lastError: err };
+        });
+        var cols = [
+          { key: "sourceName", label: "来源" },
+          { key: "status", label: "状态" },
+          { key: "lastSuccessAt", label: "上次成功" },
+          { key: "lastError", label: "最近错误" }
+        ];
+        wrap.innerHTML = '<h3 style="margin:0 0 8px;font-size:14px">投影同步状态</h3>'
+          + C.tableHtml(cols, rows, "暂无同步状态")
+          + lagHtml;
+      } catch (e) {
+        wrap.innerHTML = '<div class="empty-panel"><h3>同步状态读取失败</h3><p>' + esc(e.message) + "</p></div>";
+      }
+    }
+
+    async function loadStats() {
+      var f = buildReportFilters("rs");
+      delete f.status;
+      delete f.sortBy;
+      delete f.sortOrder;
+      var wrap = document.getElementById("rsTable");
+      if (wrap) wrap.innerHTML = '<p class="hint">加载中…</p>';
+      var res = await api().reportStats(f);
+      if (!res.ok) {
+        if (wrap) wrap.innerHTML = '<div class="empty-panel"><h3>读取失败</h3><p>' + esc(res.message) + "</p></div>";
+        return;
+      }
+      var rows = (res.data && Array.isArray(res.data.categories)) ? res.data.categories : [];
+      var cols = [
+        { key: "categoryName", label: "分类", render: function (r) { return esc(r.categoryName || r.category || "—"); } },
+        { key: "loanCount", label: "借阅次数", cls: "num" },
+        { key: "openCount", label: "未归还次数", cls: "num" }
+      ];
+      if (wrap) wrap.innerHTML = C.tableHtml(cols, rows, "暂无统计数据");
+    }
+
+    var btn = document.getElementById("rsLoad");
+    if (!btn) return;
+    async function refresh() {
+      btn.disabled = true;
+      try {
+        await loadSyncStatus();
+        if (btn.isConnected) await loadStats();
+      } finally {
+        btn.disabled = false;
+      }
+    }
+    btn.onclick = refresh;
+    await refresh();
+  };
+
+  C.registry["report-export"] = async function () {
+    C.setActions("");
+    C.body().innerHTML = [
+      '<div class="panel"><div class="panel-head"><div><h2>统计导出</h2>',
+      "<p>导出的行与报表查询的可见行一致。</p></div></div>",
+      '  <p id="reSeedHint" class="hint" hidden>临时数据</p>',
+      reportFilterToolbar("re", true, true),
+      '  <div class="toolbar" style="margin-top:8px">',
+      '    <button class="btn btn-primary btn-sm" type="button" id="reDownload">下载 CSV</button>',
+      "  </div>",
+      '  <p class="hint" style="margin-top:12px">使用与「报表查询」相同的筛选条件；文件名将保存为 report.csv。</p>',
+      "</div>"
+    ].join("");
+
+    await wireReportFilters("re");
+
+    var dl = document.getElementById("reDownload");
+    if (dl) {
+      dl.onclick = async function () {
+        var filters = buildReportFilters("re");
+        dl.disabled = true;
+        var res = await api().reportExport(filters);
+        dl.disabled = false;
+        if (!res.ok) C.toast(res.message || "导出失败", "error");
+        else C.toast("已开始下载 report.csv", "success");
+      };
+    }
   };
 })();

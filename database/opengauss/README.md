@@ -16,12 +16,11 @@
 
    初始化角色使用维护库 `postgres`。openGauss 会在执行 `CREATE USER` 的库中自动创建同名 schema，备份也包含这些 schema。在单独的空库 `library` 中恢复能避免重复创建。已有角色的集群可跳过 `init_roles.py`，空的 `library` 已存在时可跳过建库命令。以下完整恢复只用于空库。
 
-2. **恢复 D 的逻辑备份，安装 C 的借阅过程。** 备份包含表、约束、权限和种子数据。只演示两个读者的数据库身份时，第一条命令已包含所需的数据和权限。
+2. **在空库恢复 D 的逻辑备份。** 本版备份包含表、约束、种子数据、C 的借还过程、审计触发器及相应授权。第二条命令用于核对恢复结果。
 
    ```sh
    gsql -U gaussdb -d library -v ON_ERROR_STOP=1 -f dist/library.sql
-   gsql -U gaussdb -d library -v ON_ERROR_STOP=1 -f ../loan/002_procedures.sql
-   gsql -U gaussdb -d library -v ON_ERROR_STOP=1 -f ../loan/004_execute_grants.sql
+   gsql -U gaussdb -d library -v ON_ERROR_STOP=1 -f ../../tests/recovery/15-对象核对清单.sql
    ```
 
 3. **检查读者和数据库身份。** 后两条命令分别以不同的数据库用户连接，使用第 1 步设置的数据库密码。
@@ -34,7 +33,7 @@
 
    也可在 Windows 工程里复制本目录的 `env.example` 为本机 `.env`，填入 `LIBRARY_LOCAL_PASSWORD` 供 A、C 的本地启动脚本使用。按 [两个读者的登录与数据库身份](../../docs/读者登录联调.md) 启动服务，首次使用 `-InitReaders` 设置网页密码。共享快照中保留了 A 初始化时识别的 `REPLACE_WITH_HASH` 种子值。
 
-整合 B 的书屋页面还需要书目扩展及书评、公告表，执行顺序见[工程根目录 README](../../README.md)。
+现有联调库可直接执行对象核对脚本。较早的库若缺 C 的过程或授权，依次执行 `../loan/002_procedures.sql` 和 `../loan/004_execute_grants.sql`。完整书屋还需要 B 的书目扩展及书评、公告表，执行顺序见[工程根目录 README](../../README.md)。
 
 ## D 维护的源文件
 
@@ -43,7 +42,7 @@
 | 四个业务 schema | `iam/`、`catalog/`、`loan/`、`report/` 下的 `001_schema.sql` |
 | 角色模板及授权 | `roles/`；`dist/001_roles.sql` 与 `roles/001_users.sql` 内容相同 |
 | 演示数据和快照 | `seed/001_demo.sql`、`dist/library.sql` |
-| 数据结构与约定 | [ER 图](02-逻辑ER.png)、[数据字典](数据字典.md)、[边界与命名](01-边界与命名.md)、[账号对照](03-账号对照.md) |
+| 数据结构与约定 | [数据库设计说明书](数据库设计说明书.md)、[权限矩阵](权限矩阵.md)、[ER 图](02-逻辑ER.png)、[数据字典](数据字典.md)、[边界与命名](01-边界与命名.md)、[账号对照](03-账号对照.md) |
 | 环境和维护说明 | [环境记录](00-环境记录.md)、[重建和导出顺序](06-重建顺序.md)、[分工说明](使用说明-全组.md) |
 
 重新制作供全组使用的快照时，在空开发库中装载源建表、授权和演示种子，再导出。这样快照中的账号保持可由各组员独立初始化的状态。

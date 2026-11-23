@@ -1,7 +1,11 @@
--- 在 C 提交 sp_borrow_copy 和 sp_return_copy 之后再执行。
--- 这次交给全组的第一份备份不包含这两个过程，因此本文件先不执行。
-
+-- 借阅过程 EXECUTE 授权已由 C 维护的 database/loan/004_execute_grants.sql 执行。
+-- 当前 dist/library.sql 已含 C 的过程和授权。升级缺少这些对象的旧库时，
+-- 依次执行 database/loan/002_procedures.sql 与 database/loan/004_execute_grants.sql。
+-- 下面四参数签名的 GRANT 示例已作废，不得再执行：
+--
 -- GRANT EXECUTE ON PROCEDURE loan.sp_borrow_copy(BIGINT, BIGINT, INTEGER, VARCHAR)
 --     TO db_loan_reader01, db_loan_reader02, db_loan_librarian01;
 -- GRANT EXECUTE ON PROCEDURE loan.sp_return_copy(BIGINT, VARCHAR)
 --     TO db_loan_reader01, db_loan_reader02, db_loan_librarian01;
+--
+-- 当前签名见 docs/D联调交接.md 与 004_execute_grants.sql（五参数 sp_borrow_copy）。

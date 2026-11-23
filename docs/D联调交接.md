@@ -1,6 +1,6 @@
 # 给 D 的 C 模块联调交接
 
-按定稿开发：没有修改表结构、种子编号或其他 schema。请先导入原 dist，再执行 C 的 002_procedures.sql 和 004_execute_grants.sql，最后由 D 重新导出 dist。
+当前 D 的 `database/opengauss/dist/library.sql` 已包含下列 C 过程、触发器和授权，可直接在空库恢复。使用旧基线的开发库可按[重建说明](../database/opengauss/README.md)补齐缺失对象。
 
 ## 过程签名
 

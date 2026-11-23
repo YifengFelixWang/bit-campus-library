@@ -21,3 +21,21 @@
 5. 首次设置完成后，移除 `.env` 中的两行 `IAM_SEED_*`，运行 `docker compose up -d --no-deps identity-service` 用基础配置重建 A 容器，再登录即可。下次均使用 `docker compose up -d`。需要停止两个应用容器时运行 `docker compose down`。
 
 若登录失败，运行 `docker compose logs --tail 60 identity-service` 查看 A 能否连库。若登录成功但查询数据库身份失败，再查看 `docker compose logs --tail 60 loan-service`，核对 C 的三个业务账户口令和 `IDENTITY_URL`。借阅服务的 `/api/health` 只报告服务已启动，读者身份以页面查询成功为准。
+
+## 启动含报表的完整书屋
+
+在本目录的 `.env` 补齐 `CATALOG_DB_*` 口令，并把 `db_report_analyst01` 和 `db_report_sync` 的数据库口令分别填入 `REPORT_DB_ANALYST_PASSWORD` 和 `REPORT_DB_SYNC_PASSWORD`。启用借阅变更同步时，在 `REPORT_SYNC_TOKEN` 填入私有的随机令牌（至少 32 个字符），Compose 会将它同时提供给身份服务和报表服务。
+
+首次给 D 的种子应用账号 `analyst01` 设置密码时，在 `.env` 填入 `IAM_SEED_ANALYST01_PASSWORD`（12～256 个字符），执行以下命令。读者也需要初始化时，在命令中追加 `-f compose.seed.yaml` 至 `up` 前。
+
+```powershell
+docker compose -f compose.yaml -f compose.web.yaml -f compose.analyst-seed.yaml up -d --build
+```
+
+已有分析员密码或首次初始化完成后，用常规配置启动完整书屋。可以从 `.env` 移除应用初始化密码。
+
+```powershell
+docker compose -f compose.yaml -f compose.web.yaml up -d --build
+```
+
+打开 [书屋](http://localhost:8080/) 并用 `analyst01` 登录，在控制台查看报表查询、借阅统计和 CSV 导出。通过同一入口的 [报表健康检查](http://localhost:8080/api/reports/health) 查看报表服务及其数据库连接状态。使用 `docker compose -f compose.yaml -f compose.web.yaml down` 停止完整书屋。
