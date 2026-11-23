@@ -30,13 +30,17 @@ DELETE FROM catalog.category WHERE category_id BETWEEN 1 AND 2;
 DELETE FROM iam.db_identity_mapping WHERE user_id BETWEEN 1 AND 4;
 DELETE FROM iam.user_role WHERE user_id BETWEEN 1 AND 4;
 DELETE FROM iam.app_user WHERE user_id BETWEEN 1 AND 4;
-DELETE FROM iam.app_role WHERE role_id BETWEEN 1 AND 4;
-
-INSERT INTO iam.app_role (role_id, role_code, role_name) VALUES
+-- Keep shared role rows: accounts created after the demo (e.g. ops1) may reference them.
+INSERT INTO iam.app_role (role_id, role_code, role_name)
+SELECT seed.role_id, seed.role_code, seed.role_name FROM (VALUES
     (1, 'READER', '读者'),
     (2, 'LIBRARIAN', '馆员'),
     (3, 'ANALYST', '数据分析员'),
-    (4, 'OPERATOR', '运维管理员');
+    (4, 'OPERATOR', '运维管理员')
+) AS seed(role_id, role_code, role_name)
+WHERE NOT EXISTS (
+    SELECT 1 FROM iam.app_role r WHERE r.role_id = seed.role_id AND r.role_code = seed.role_code
+);
 
 INSERT INTO iam.app_user (user_id, username, password_hash, display_name, enabled, updated_at, deleted) VALUES
     (1, 'reader01', 'REPLACE_WITH_HASH', '读者一', TRUE, TIMESTAMP '2026-10-01 09:00:00', FALSE),

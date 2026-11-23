@@ -99,7 +99,7 @@ public class AuthFilter extends OncePerRequestFilter {
     private RoleContext.AppRole mapRole(List<String> roles) {
         if (roles.contains("LIBRARIAN")) return RoleContext.AppRole.LIBRARIAN;
         if (roles.contains("ANALYST")) return RoleContext.AppRole.ANALYST;
-        if (roles.contains("OPS")) return RoleContext.AppRole.OPS;
+        if (roles.contains("OPERATOR") || roles.contains("OPS")) return RoleContext.AppRole.OPS;
         // 兼容历史令牌：ADMIN 视作馆员
         if (roles.contains("ADMIN")) return RoleContext.AppRole.LIBRARIAN;
         return RoleContext.AppRole.READER;
