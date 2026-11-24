@@ -8,14 +8,28 @@ export function pad(n) {
   return String(n).padStart(2, "0");
 }
 
+/**
+ * 库里的时间列是 timestamp without time zone，存的是北京时间墙上时间；
+ * 接口把它序列化成「…+00:00」后，直接 new Date 会多算 8 小时（今天的公告显示成明天）。
+ * 所以这里按字面量还原成本地时间，忽略那个偏移标记。
+ */
+function toLocalDate(value) {
+  if (value instanceof Date) return value;
+  if (typeof value === "number") return new Date(value);
+  const m = String(value == null ? "" : value)
+    .match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?/);
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0));
+  return new Date(value);
+}
+
 export function fmtDate(value) {
-  const d = new Date(value);
+  const d = toLocalDate(value);
   if (isNaN(d.getTime())) return "—";
   return d.getFullYear() + "/" + pad(d.getMonth() + 1) + "/" + pad(d.getDate());
 }
 
 export function fmtDateTime(value) {
-  const d = new Date(value);
+  const d = toLocalDate(value);
   if (isNaN(d.getTime())) return "—";
   return fmtDate(value) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes());
 }

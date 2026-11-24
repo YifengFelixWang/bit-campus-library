@@ -44,7 +44,7 @@ export function requestBorrow(bookId) {
   confirmAction({
     icon: "book",
     title: "确认借阅",
-    desc: "借期为 " + api.loanDays() + " 天，到期日为 " + fmtDate(due) + "。确认后将调用存储过程 sp_borrow_copy，并由触发器写入审计。",
+    desc: "借期为 " + api.loanDays() + " 天，到期日为 " + fmtDate(due) + "。到期前可以在「我的借阅」里归还。",
     book: book,
     confirmText: "确认借阅",
     onConfirm: async function () {
@@ -54,7 +54,7 @@ export function requestBorrow(bookId) {
         return false;
       }
       toast("已借阅《" + book.title + "》，请在 " + fmtDate(due) + " 前归还。");
-      refreshStore();
+      await refreshStore();
       return true;
     }
   });
@@ -72,7 +72,7 @@ export function requestReturn(borrowId) {
   confirmAction({
     icon: "swap",
     title: "确认归还",
-    desc: "归还后，《" + row.book_title + "》将重新上架，库存由触发器 trg_after_return 自动恢复。",
+    desc: "归还后，《" + row.book_title + "》会重新变为可借，之后可以回到这本书的详情页打星评价。",
     confirmText: "确认归还",
     onConfirm: async function () {
       const result = await api.returnBook(borrowId);
@@ -81,7 +81,7 @@ export function requestReturn(borrowId) {
         return false;
       }
       toast("已归还《" + row.book_title + "》，感谢你让好书继续流转。");
-      refreshStore();
+      await refreshStore();
       if (canReviewAfter) {
         window.setTimeout(function () { openReview(row.book_id); }, 320);
       }

@@ -55,7 +55,7 @@ export default {
         </form>
         <div class="modal-actions">
           <button class="btn btn-ghost" type="button" @click="closeReview">取消</button>
-          <button class="btn btn-primary" type="button" @click="submitReview">{{ reviewState.existing ? '更新评价' : '提交评价' }}</button>
+          <button class="btn btn-primary" type="button" :disabled="reviewState.submitting" @click="submitReview">{{ reviewState.submitting ? '提交中…' : (reviewState.existing ? '更新评价' : '提交评价') }}</button>
         </div>
       </div>
     </div>

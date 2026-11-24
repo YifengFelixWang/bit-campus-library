@@ -1,7 +1,7 @@
 import { createApp } from "../vendor/vue.esm-browser.prod.js";
 import App from "./App.js";
 import { startRouter } from "./router.js";
-import { initStore, syncIdentity, store } from "./store.js";
+import { initStore, syncIdentity, store, refreshStore } from "./store.js";
 import { installTataUI } from "./core/tata-ui.js";
 import { api } from "./services/api.js";
 
@@ -21,6 +21,8 @@ window.__TATA_STORE__ = store;
 // 轮询保持低频，切回标签页时立即拉一次，避免频繁请求。
 setInterval(function () { syncIdentity(); }, 15000);
 window.addEventListener("focus", function () { syncIdentity(); });
+// 控制台保存公告/改书目后，读者端的数据要跟着变，不然要手动刷新才看得到
+window.addEventListener("library:refresh", function () { refreshStore(); });
 document.addEventListener("visibilitychange", function () {
   if (!document.hidden) syncIdentity();
 });

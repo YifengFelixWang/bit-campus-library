@@ -297,7 +297,7 @@
     ];
     C.body().innerHTML = [
       '<div class="panel"><div class="panel-head"><div><h2>读者评价</h2>',
-      "<p>数据来自 catalog.review（" + rows.length + " 条）。读者在图书详情页发表，馆员可删除不当评价。</p></div></div>",
+      "<p>共 " + rows.length + " 条。读者归还图书后可在详情页发表，馆员可删除不当评价。</p></div></div>",
       '  <div id="reviewWrap"></div>',
       "</div>"
     ].join("");
@@ -348,7 +348,7 @@
     ];
     C.body().innerHTML = [
       '<div class="panel"><div class="panel-head"><div><h2>公告管理</h2>',
-      "<p>数据来自 catalog.announcement（" + rows.length + " 条）。已发布的公告会显示在读者端「公告」页。</p></div></div>",
+      "<p>共 " + rows.length + " 条；已发布的会显示在读者端「馆内公告」页，草稿只有工作人员可见。</p></div></div>",
       '  <div id="annWrap"></div>',
       "</div>"
     ].join("");
@@ -366,6 +366,7 @@
           if (!r.ok) { C.toast(r.message, "error"); return false; }
           C.toast("已删除");
           C.registry.announcements();
+          window.dispatchEvent(new Event("library:refresh"));
           return true;
         }
       });
@@ -382,9 +383,19 @@
       "  </select></label>",
       "</form>"
     ].join("");
+    window.setTimeout(function () {
+      var form = document.querySelector(".modal .modal-form");
+      if (!form) return;
+      form.addEventListener("keydown", function (event) {
+        if (event.key !== "Enter" || event.shiftKey || event.target.tagName === "TEXTAREA") return;
+        event.preventDefault();
+        var ok = document.querySelector(".modal .btn-primary[data-modal-confirm]");
+        if (ok) ok.click();
+      });
+    }, 30);
     window.TataUI.modal({
       title: "发布公告",
-      desc: "写入 catalog.announcement，发布后读者端立即可见。",
+      desc: "选「立即发布」，读者端「馆内公告」页马上能看到；选「存为草稿」则只有工作人员可见。",
       bodyHtml: body,
       confirmText: "保存",
       onConfirm: async function () {
@@ -397,7 +408,9 @@
           published: document.getElementById("anPublished").value === "true"
         });
         if (!r.ok) { C.toast("保存失败：" + r.message, "error"); return false; }
-        C.toast("公告已保存");
+        var published = document.getElementById("anPublished").value === "true";
+        C.toast(published ? "已发布，读者端可见" : "已存为草稿，读者端暂不可见");
+        window.dispatchEvent(new Event("library:refresh"));
         C.registry.announcements();
         return true;
       }
@@ -751,7 +764,7 @@
     var stats = api().stats();
     C.body().innerHTML = [
       '<div class="panel"><div class="panel-head"><div><h2>数据导入导出</h2>',
-      "<p>书目导入写成 catalog.book；借阅记录导出读取 loan.loan_record。</p></div></div>",
+      "<p>书目导入会写入馆藏，借阅记录导出只读取借阅数据，不会改动任何记录。</p></div></div>",
       '  <div class="toolbar" style="flex-wrap:wrap;gap:12px">',
       '    <a class="btn btn-ghost btn-sm" href="' + api().templateUrl() + '">下载导入模板</a>',
       '    <a class="btn btn-ghost btn-sm" href="' + api().exportBooksUrl("") + '">导出全部书目</a>',

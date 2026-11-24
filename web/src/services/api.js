@@ -334,27 +334,21 @@ export const api = {
         else errors.push("身份：" + e.message);
       }
     }
-    const canBorrow = state.user?.roles?.some(role => role === "READER" || role === "LIBRARIAN");
-    if (!canBorrow) {
-      // 副本接口要求登录，匿名访问必然 401，不必发这一次请求
-      state.copyStats = new Map();
-    } else {
-      try {
-        // 副本表会随导入不断增长，只取首页 100 条会让绝大多数书显示「可借 0」。
-        // 偶发失败（并发抖动）重试两次，否则统计会整片归零。
-        let copies = null;
-        for (let attempt = 0; attempt < 3 && copies === null; attempt += 1) {
-          try {
-            copies = await fetchAllCopies();
-          } catch (e) {
-            if (attempt === 2) throw e;
-            await new Promise(function (r) { setTimeout(r, 300 * (attempt + 1)); });
-          }
-        }
-        applyCopies(copies || []);
-      } catch (e) { errors.push("副本：" + e.message); }
-    }
+    // 库存统计改成公开接口，登录与否都按同一份数据算可借册数。
+    // 以前匿名时拿不到副本明细，前端回退成「馆藏总数」，于是访客看到 8、登录后看到 6。
+    try {
+      const rows = await getJson("/api/availability");
+      const stats = new Map();
+      (Array.isArray(rows) ? rows : []).forEach(function (r) {
+        const id = Number(r.book_id);
+        const total = Number(r.total) || 0;
+        const available = Number(r.available) || 0;
+        if (id > 0) stats.set(id, { total: total, available: available, borrowed: Math.max(0, total - available) });
+      });
+      state.copyStats = stats;
+    } catch (e) { errors.push("库存：" + e.message); }
 
+    const canBorrow = state.user?.roles?.some(role => role === "READER" || role === "LIBRARIAN");
     if (canBorrow) {
       try {
         // 只有馆员能看全馆借阅（借阅服务的 all=true 只放行 LIBRARIAN）；

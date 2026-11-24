@@ -61,6 +61,21 @@ public class LoanController {
  @GetMapping("/me") Object me(@RequestHeader(value="Authorization",required=false) String token){
   User u=user(token);ensureBorrower(u.id());return Map.of("id",u.id(),"roles",u.roles(),"username",u.username(),"database",sessions.db(u.id()).queryForMap("select current_user as current_user,session_user as session_user"));
  }
+ /**
+  * 公开的库存统计：只给每本书「在架 / 总册数」，不含副本条码，匿名也能看。
+  * 读者端首屏的可借册数靠它——以前未登录拿不到副本明细，前端只好按馆藏总数显示，
+  * 于是同样一屏，访客看到 8、登录后看到 6，像是还书把书弄丢了。
+  */
+ @GetMapping("/availability") Object availability(){
+  return sessions.db(1).queryForList("""
+    select book_id,
+           sum(case when status='AVAILABLE' then 1 else 0 end) as available,
+           count(*) as total
+      from loan.book_copy
+     group by book_id
+     order by book_id
+    """);
+ }
  @GetMapping("/copies") Object copies(@RequestHeader(value="Authorization",required=false) String token,@RequestParam(defaultValue="0") long after){
   User u=user(token);return sessions.db(u.id()).queryForList("select c.*,b.title from loan.book_copy c left join loan.book_snapshot b on b.book_id=c.book_id where c.copy_id>? order by c.copy_id limit 100",after);
  }

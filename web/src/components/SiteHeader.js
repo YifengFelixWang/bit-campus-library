@@ -179,8 +179,7 @@ export default {
             <div class="account-menu" id="accountMenu" role="menu" v-show="menuOpen">
               <div class="account-head">
                 <strong id="menuUserName">{{ user.name }}</strong>
-                <span id="menuUserAccount">{{ user.username }} · {{ user.role }}</span>
-                <small v-if="user.database">借阅数据库：{{ user.database.current_user }}</small>
+                <span id="menuUserAccount">{{ user.username }} · {{ roleName(user.role) }}</span>
               </div>
               <button v-if="staff" type="button" id="menuConsole" role="menuitem" @click="consoleEntry"><svg class="icon"><use href="#i-grid"></use></svg>管理控制台</button>
               <button type="button" id="menuSwitch" role="menuitem" @click="switchAccount"><svg class="icon"><use href="#i-swap"></use></svg>切换账号</button>

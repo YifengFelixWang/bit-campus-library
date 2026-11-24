@@ -14,7 +14,9 @@ import edu.library.catalog.common.ApiException;
 public enum BookSortField {
 
     UPDATED_AT("updatedAt", "b.updated_at"),
-    TITLE("title", "b.title"),
+    // 中文书名按 Unicode 码点排是「围、数、活、红」，读者看着像乱序；
+    // GBK 一级字库本身按拼音排列，转成字节序即近似拼音序，英文仍排在前面。
+    TITLE("title", "convert_to(b.title, 'GBK')"),
     PUBLISH_YEAR("publishYear", "b.publish_year"),
     BOOK_ID("bookId", "b.book_id");
 

@@ -10,6 +10,8 @@ import BookCard from "./BookCard.js";
  * 前端不做过滤也不拼 SQL——过滤和分页都在数据库侧完成，
  * 一次请求关联 book / category / book_author / author / media 五张表。
  */
+const CURRENT_YEAR = new Date().getFullYear();
+
 export default {
   name: "LibraryView",
   components: { BookCard },
@@ -23,8 +25,8 @@ export default {
       publisher: "",
       isbn: "",
       categoryId: "",
-      yearFrom: "",
-      yearTo: "",
+      yearFrom: 0,
+      yearTo: CURRENT_YEAR,
       status: DEFAULT_STATUS,
       sortBy: "updatedAt",
       sortOrder: "desc"
@@ -95,8 +97,9 @@ export default {
         publisher: form.publisher.trim(),
         isbn: form.isbn.trim(),
         categoryId: form.categoryId === "" ? "" : form.categoryId,
-        yearFrom: form.yearFrom === "" ? "" : form.yearFrom,
-        yearTo: form.yearTo === "" ? "" : form.yearTo,
+        // 默认范围就是「公元 0 年 ~ 今年」，这两个边界等于不设限，不必发给后端
+        yearFrom: Number(form.yearFrom) > 0 ? form.yearFrom : "",
+        yearTo: Number(form.yearTo) < CURRENT_YEAR ? form.yearTo : "",
         status: form.status,
         sortBy: form.sortBy,
         sortOrder: form.sortOrder,
@@ -143,8 +146,8 @@ export default {
       form.publisher = "";
       form.isbn = "";
       form.categoryId = "";
-      form.yearFrom = "";
-      form.yearTo = "";
+      form.yearFrom = 0;
+      form.yearTo = CURRENT_YEAR;
       form.status = DEFAULT_STATUS;
       form.sortBy = "updatedAt";
       form.sortOrder = "desc";
@@ -163,7 +166,7 @@ export default {
     });
 
     return {
-      store,
+      store, currentYear: CURRENT_YEAR,
       form, result, loading, error, expanded, searched,
       categories, activeCategory, page, totalPages, pageList, conditionCount,
       submit, goPage, setCategory, reset, togglePanel
@@ -215,11 +218,11 @@ export default {
               </label>
               <label class="qfield">
                 <span>出版年份（起）</span>
-                <input v-model="form.yearFrom" type="number" inputmode="numeric" min="1000" max="2100" placeholder="不限">
+                <input v-model="form.yearFrom" type="number" inputmode="numeric" min="0" max="2100" placeholder="0">
               </label>
               <label class="qfield">
                 <span>出版年份（止）</span>
-                <input v-model="form.yearTo" type="number" inputmode="numeric" min="1000" max="2100" placeholder="不限">
+                <input v-model="form.yearTo" type="number" inputmode="numeric" min="0" max="2100" :placeholder="String(currentYear)">
               </label>
               <label class="qfield">
                 <span>上架状态</span>
@@ -271,11 +274,8 @@ export default {
             <div>
               <p class="eyebrow">COLLECTION</p>
               <h2>馆藏图书</h2>
-              <p class="section-sub" v-if="result.joinTables.length">
-                本次查询联动 {{ result.joinTables.length }} 张表：
-                <span class="join-tags">
-                  <code v-for="t in result.joinTables" :key="t">{{ t }}</code>
-                </span>
+              <p class="section-sub">
+                按书名、作者、分类与出版年组合筛选，条件之间是「且」的关系；只填一项就是单条件查询。
               </p>
             </div>
             <div class="filters" id="allFilters" role="group" aria-label="按分类筛选全部图书">

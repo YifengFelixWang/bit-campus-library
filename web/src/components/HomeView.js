@@ -61,8 +61,15 @@ export default {
       const revision = store.revision;
       return api.availableCopies();
     });
+    // 只报一个「可借 6 册」容易被误读成丢书：把馆藏总数与在借册数一起放进说明
+    const heroTotal = computed(function () {
+      const revision = store.revision;
+      return store.books.reduce(function (n, b) { return n + (Number(b.total) || 0); }, 0);
+    });
     const availableTitle = computed(function () {
-      return "全馆当前可借 " + heroAvailable.value + " 册，点击跳到热门图书";
+      const borrowed = Math.max(0, heroTotal.value - heroAvailable.value);
+      return "全馆馆藏 " + heroTotal.value + " 册，当前可借 " + heroAvailable.value
+        + " 册（" + borrowed + " 册在借），点击跳到热门图书";
     });
     const topRated = computed(function () {
       const revision = store.revision;
@@ -150,7 +157,7 @@ export default {
       categories, books, category, setCategory, resetFilters, borrowTitle,
       activeLoans, loansSummary, popularTotal, daysInfo, returnLoan, loginForLoans,
       browsePopular, openShelf, fmtDate, loanRuleText, loanEmpty, loanEmptyAction,
-      heroAvailable, availableTitle, topRated, topScore, topLabel, topTitle,
+      heroAvailable, heroTotal, availableTitle, topRated, topScore, topLabel, topTitle,
       openTopRated, browsePopularFromHero
     };
   },

@@ -1,11 +1,13 @@
-import { computed } from "../../vendor/vue.esm-browser.prod.js";
-import { store, isStaff } from "../store.js";
+import { computed, onMounted } from "../../vendor/vue.esm-browser.prod.js";
+import { store, isStaff, refreshAnnouncements } from "../store.js";
 import AnnouncementCard from "./AnnouncementCard.js";
 
 export default {
   name: "NoticesView",
   components: { AnnouncementCard },
   setup() {
+    // 工作人员刚发布的公告要能立刻看到，进页面时单独刷一次
+    onMounted(function () { refreshAnnouncements(true); });
     return {
       announcements: computed(function () { return store.announcements; }),
       staff: computed(function () { return isStaff(); })

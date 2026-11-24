@@ -26,6 +26,24 @@ export function onStoreChange(handler) {
   changeHandler = handler;
 }
 
+/** 只刷新公告：进入公告页、工作人员发布后调用，不必整库重拉。 */
+export async function refreshAnnouncements(publishedOnly) {
+  const res = await api.consoleAnnouncements(publishedOnly !== false);
+  if (!res || !res.ok) return;
+  const items = (res.data && res.data.items) || [];
+  store.announcements = items.map(function (x) {
+    return {
+      id: x.announcementId,
+      title: x.title,
+      content: x.content,
+      author: "librarian",
+      created_at: x.createdAt,
+      updated_at: x.updatedAt,
+      pinned: Boolean(x.pinned)
+    };
+  });
+}
+
 export async function refreshStore() {
   await api.preload();
   store.user = api.currentUser();
@@ -34,7 +52,7 @@ export async function refreshStore() {
   store.hot = api.hotByCategory("全部", 8);
   store.newArrivals = api.newArrivals(6);
   store.categories = api.categories();
-  store.announcements = api.announcements(true);
+  await refreshAnnouncements(true);
   store.borrows = api.listBorrows({ status: "all" });
   store.reviews = api.reviewsFor(null, { type: "review" });
   store.stats = api.stats();

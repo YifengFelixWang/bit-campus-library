@@ -1,4 +1,4 @@
-import { computed } from "../../vendor/vue.esm-browser.prod.js";
+import { computed, ref } from "../../vendor/vue.esm-browser.prod.js";
 import { store } from "../store.js";
 import { api } from "../services/api.js";
 import { fmtDate } from "../core/utils.js";
@@ -20,6 +20,31 @@ export default {
         return row.user_id === user.value.id && String(row.status).toUpperCase() === "BORROWED";
       });
     });
+    // 借阅记录：默认看全部。以前只列 BORROWED，书一还完整条就从页面消失，
+    // 读者会以为记录丢了；这里保留历史，用状态区分在借与已归还。
+    const borrowFilter = ref("all");
+    const allEntries = computed(function () {
+      if (!user.value) return [];
+      return store.borrows.filter(function (row) { return row.user_id === user.value.id; });
+    });
+    const returnedEntries = computed(function () {
+      return allEntries.value.filter(function (row) { return String(row.status).toUpperCase() === "RETURNED"; });
+    });
+    const visibleEntries = computed(function () {
+      if (borrowFilter.value === "active") return activeEntries.value;
+      if (borrowFilter.value === "returned") return returnedEntries.value;
+      return allEntries.value;
+    });
+    function statusLabel(row) {
+      const status = String(row.status).toUpperCase();
+      if (status === "RETURNED") return "已归还";
+      return row.overdue ? "已逾期" : "在借";
+    }
+    function statusClass(row) {
+      const status = String(row.status).toUpperCase();
+      if (status === "RETURNED") return "is-returned";
+      return row.overdue ? "is-overdue" : "is-active";
+    }
     const feedbackItems = computed(function () {
       if (!user.value || user.value.role !== "reader" || !api.can("rating:write")) return [];
       const returnedRows = store.borrows.filter(function (row) {
@@ -53,7 +78,7 @@ export default {
       return feedbackItems.value.filter(function (item) { return !item.review; }).length;
     });
     const borrowSummary = computed(function () {
-      return user.value ? "共 " + activeEntries.value.length + " 本" : "未登录";
+      return user.value ? ("在借 " + activeEntries.value.length + " 本 · 共 " + allEntries.value.length + " 条记录") : "未登录";
     });
     const feedbackSummary = computed(function () {
       if (!user.value) return "登录后评价";
@@ -105,7 +130,9 @@ export default {
       return (Number(rating) * 2).toFixed(1);
     }
     return {
-      user, activeEntries, feedbackItems, pendingReviews, borrowSummary, feedbackSummary,
+      user, activeEntries, allEntries, returnedEntries, visibleEntries, borrowFilter,
+      statusLabel, statusClass,
+      feedbackItems, pendingReviews, borrowSummary, feedbackSummary,
       borrowEmpty, feedbackEmpty, goBorrow, feedbackAction, giveBack, review, daysInfo,
       fmtDate, reviewScore
     };
@@ -134,25 +161,42 @@ export default {
               <span class="pill" id="borrowSummary">{{ borrowSummary }}</span>
             </div>
 
+            <div class="borrow-filters" id="borrowFilters">
+              <button type="button" class="chip" :class="{ 'is-active': borrowFilter === 'all' }" @click="borrowFilter = 'all'">全部 {{ allEntries.length }}</button>
+              <button type="button" class="chip" :class="{ 'is-active': borrowFilter === 'active' }" @click="borrowFilter = 'active'">在借 {{ activeEntries.length }}</button>
+              <button type="button" class="chip" :class="{ 'is-active': borrowFilter === 'returned' }" @click="borrowFilter = 'returned'">已归还 {{ returnedEntries.length }}</button>
+            </div>
+
             <div class="borrow-list" id="borrowList">
-              <div v-for="row in activeEntries" :key="row.borrow_id" class="borrow-item">
+              <div v-for="row in visibleEntries" :key="row.borrow_id" class="borrow-item">
                 <div class="mini-cover">{{ row.book_title.charAt(0) }}</div>
                 <div class="borrow-main">
-                  <h3>{{ row.book_title }}</h3>
-                  <p>{{ row.book_author }} · 借阅于 {{ fmtDate(row.borrowed_at) }} · 借阅号 {{ row.borrow_id }}</p>
+                  <h3>{{ row.book_title }} <span class="borrow-status" :class="statusClass(row)">{{ statusLabel(row) }}</span></h3>
+                  <p>{{ row.book_author }} · 借阅于 {{ fmtDate(row.borrowed_at) }}<template v-if="row.returned_at"> · 归还于 {{ fmtDate(row.returned_at) }}</template></p>
                 </div>
-                <div class="due">
+                <div class="due" v-if="String(row.status).toUpperCase() !== 'RETURNED'">
                   <span class="due-label">到期日</span>
                   <strong>{{ fmtDate(row.due_at) }}</strong>
                   <span class="days" :class="daysInfo(row).cls">{{ daysInfo(row).text }}</span>
                 </div>
+                <div class="due" v-else>
+                  <span class="due-label">归还日</span>
+                  <strong>{{ fmtDate(row.returned_at) }}</strong>
+                  <span class="days">已完成</span>
+                </div>
                 <div class="borrow-actions">
-                  <button type="button" class="btn-return" :data-borrow="row.borrow_id" @click="giveBack(row)">归还</button>
+                  <button v-if="String(row.status).toUpperCase() !== 'RETURNED'" type="button" class="btn-return" :data-borrow="row.borrow_id" @click="giveBack(row)">归还</button>
+                  <span v-else class="borrow-done">已还</span>
                 </div>
               </div>
             </div>
 
-            <div v-if="!activeEntries.length" class="empty-borrows" id="emptyBorrows">
+            <div v-if="allEntries.length && !visibleEntries.length" class="empty-borrows" id="emptyFiltered">
+              <h3>这个分类下没有记录</h3>
+              <p>切换到「全部」可以看到所有借阅历史。</p>
+            </div>
+
+            <div v-if="!allEntries.length" class="empty-borrows" id="emptyBorrows">
               <div class="empty-illustration" aria-hidden="true">
                 <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M10 14.5A4.5 4.5 0 0 1 14.5 10H54v40H14.5A4.5 4.5 0 0 0 10 54.5v-40Z"/>
