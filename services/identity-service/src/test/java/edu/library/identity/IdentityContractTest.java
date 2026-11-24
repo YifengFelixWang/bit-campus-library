@@ -37,7 +37,7 @@ class IdentityContractTest {
         var mvc = MockMvcBuilders.standaloneSetup(new IdentityController(users, passwords, sessions, availability, "")).build();
         String hash = passwords.encode("correct-test-passphrase");
         when(users.enabledCredential("reader01")).thenReturn(Optional.of(new IamUsers.Credential(1, hash)));
-        when(users.enabledUser(1)).thenReturn(Optional.of(new IamUsers.User(1,"reader01",List.of("READER"))));
+        when(users.enabledUser(1)).thenReturn(Optional.of(new IamUsers.User(1,"reader01","读者一号",List.of("READER"))));
 
         mvc.perform(post("/auth/login").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"reader01\",\"password\":\"wrong\"}"))

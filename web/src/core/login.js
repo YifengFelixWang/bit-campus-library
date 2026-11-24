@@ -56,6 +56,8 @@ export async function submitLogin() {
   loginState.password = "";
   if (!result.ok) {
     loginState.loginError = result.message;
+    // 弹窗可能被点遮罩关掉，错误只在弹窗里会看不到，再补一条提示
+    toast(result.message, "warn");
     return;
   }
   store.user = result.user;
@@ -64,7 +66,8 @@ export async function submitLogin() {
   loginState.visible = false;
   unlockScroll("login");
   toast("欢迎回来，" + result.user.name + "（" + roleName(result.user.role) + "）");
-  refreshStore();
+  // 等数据刷新完再收尾：否则页头已是登录态，可借册数与「我的借阅」还是登录前那份快照
+  try { await refreshStore(); } catch (error) { console.warn("登录后刷新数据失败", error); }
   // 在控制台内直接切换账号时，必须重新挂载一次，否则侧栏与 tab 权限还是上一个角色的
   if (window.TataConsole && typeof window.TataConsole.mount === "function"
       && location.hash.indexOf("#console") === 0) {

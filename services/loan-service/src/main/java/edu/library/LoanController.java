@@ -39,18 +39,27 @@ public class LoanController {
   } catch(RestClientResponseException e){throw new ResponseStatusException(e.getStatusCode().is4xxClientError()?HttpStatus.UNAUTHORIZED:HttpStatus.SERVICE_UNAVAILABLE);}
   catch(ResourceAccessException e){throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"身份服务暂不可用");}
  }
+ /** 只按角色判权，不再按用户名硬编码：自助注册的读者也要能借还。 */
  User user(String token){
   User u=verified(token);
-  String expected=u.id()==1?"reader01":u.id()==2?"reader02":u.id()==3?"librarian01":"";
-  if(u.id()<1||u.id()>3||!expected.equals(u.username())||!u.roles().contains(u.id()==3?"LIBRARIAN":"READER"))throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+  boolean reader=u.roles().contains("READER"),librarian=u.roles().contains("LIBRARIAN");
+  if(!reader&&!librarian)throw new ResponseStatusException(HttpStatus.FORBIDDEN);
   return u;
  }
- void staff(User u){if(u.id()!=3||!u.roles().contains("LIBRARIAN"))throw new ResponseStatusException(HttpStatus.FORBIDDEN);}
+ void staff(User u){if(!u.roles().contains("LIBRARIAN"))throw new ResponseStatusException(HttpStatus.FORBIDDEN);}
+ /**
+  * 自助注册的读者没有种子数据，借阅人档案要补一行，否则 sp_borrow_copy 直接 READER_NOT_FOUND。
+  * 只对演示账号之外的人做，且由 SECURITY DEFINER 函数落库，借阅角色本身没有 INSERT 权限。
+  */
+ void ensureBorrower(long userId){
+  if(userId<4)return;
+  sessions.transaction(userId,db->{db.query("select loan.fn_ensure_borrower(?,?)",rs->null,userId,5);return null;});
+ }
  static void key(String k){if(k==null||!k.matches("[A-Za-z0-9_-]{8,64}"))throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"请求号应为 8–64 位字母数字或横线");}
  static void valid(boolean condition){if(!condition)throw new ResponseStatusException(HttpStatus.BAD_REQUEST);}
  @GetMapping("/health") Object health(){return Map.of("status","UP");}
  @GetMapping("/me") Object me(@RequestHeader(value="Authorization",required=false) String token){
-  User u=user(token);return Map.of("id",u.id(),"roles",u.roles(),"username",u.username(),"database",sessions.db(u.id()).queryForMap("select current_user as current_user,session_user as session_user"));
+  User u=user(token);ensureBorrower(u.id());return Map.of("id",u.id(),"roles",u.roles(),"username",u.username(),"database",sessions.db(u.id()).queryForMap("select current_user as current_user,session_user as session_user"));
  }
  @GetMapping("/copies") Object copies(@RequestHeader(value="Authorization",required=false) String token,@RequestParam(defaultValue="0") long after){
   User u=user(token);return sessions.db(u.id()).queryForList("select c.*,b.title from loan.book_copy c left join loan.book_snapshot b on b.book_id=c.book_id where c.copy_id>? order by c.copy_id limit 100",after);
@@ -127,6 +136,7 @@ public class LoanController {
  @PostMapping("/loans") Object borrow(@RequestHeader(value="Authorization",required=false) String token,@RequestBody Borrow b){
   User u=user(token);key(b.requestKey());if(b.readerId()!=u.id())staff(u);valid(b.copyId()>0&&b.readerId()>0&&b.days()>=1&&b.days()<=30);
   return sessions.transaction(u.id(),db->{
+   if(b.readerId()>3)db.query("select loan.fn_ensure_borrower(?,?)",rs->null,b.readerId(),5);
    db.query("call loan.sp_borrow_copy(?,?,?,?,?)",rs->null,b.readerId(),b.copyId(),b.days(),b.requestKey(),Ids.next());
    return result(db,u.id(),b.requestKey());
   });

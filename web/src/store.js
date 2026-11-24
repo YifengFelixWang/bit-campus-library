@@ -40,9 +40,14 @@ export async function refreshStore() {
   store.stats = api.stats();
   store.cluster = api.clusterSnapshot();
   // 节点状态不阻塞首屏：先返回，接口回来再填充（响应式，徽标会自动刷新）
-  api.opsStatus().then(function (res) {
-    store.ops = res && res.ok ? res.data : null;
-  }).catch(function () { store.ops = null; });
+  if (api.hasToken()) {
+    api.opsStatus().then(function (res) {
+      store.ops = res && res.ok ? res.data : null;
+    }).catch(function () { store.ops = null; });
+  } else {
+    // 节点状态需要登录，匿名访问必然 401，不如不发
+    store.ops = null;
+  }
   store.revision += 1;
   store.ready = true;
 }

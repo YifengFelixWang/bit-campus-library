@@ -282,7 +282,7 @@ async function loadIdentity() {
   state.user = {
     id: me.id,
     username: me.username,
-    name: me.username,
+    name: me.displayName && String(me.displayName).trim() ? me.displayName : me.username,
     role: roleOf(rs),
     roles: rs,
     database

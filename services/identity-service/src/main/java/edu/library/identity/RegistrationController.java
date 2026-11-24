@@ -25,7 +25,7 @@ class RegistrationController {
     record Register(String username, String password, String displayName) {}
     record Created(long userId, String username, String displayName) {}
 
-    private static final int MAX_PER_MINUTE = 5;
+    private static final int MAX_PER_MINUTE = 12;
     private final Map<String, long[]> windows = new ConcurrentHashMap<>();
     private final JdbcTemplate jdbc;
     private final Passwords passwords;
@@ -82,7 +82,7 @@ class RegistrationController {
         }
     }
 
-    /** 公开接口的兜底限速：同一来源每分钟最多 5 次，避免被当成批量造号入口。 */
+    /** 公开接口的兜底限速：同一来源每分钟最多 12 次。放到 5 次时，教室同一个出口多人注册会互相挤。 */
     private void throttle(HttpServletRequest request) {
         // 所有请求都经 Nginx，remoteAddr 会是网关地址；真实来源在 X-Real-IP，
         // 否则限速会退化成“全站每分钟 5 次”。Nginx 只在反代时写这个头，外部改不到。

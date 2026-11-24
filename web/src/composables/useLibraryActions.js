@@ -44,7 +44,7 @@ export function requestBorrow(bookId) {
   confirmAction({
     icon: "book",
     title: "确认借阅",
-    desc: "借期为 " + api.loanDays() + " 天，到期日为 " + fmtDate(due) + "。确认后将调用存储过程 sp_borrow_book，并由触发器更新库存。",
+    desc: "借期为 " + api.loanDays() + " 天，到期日为 " + fmtDate(due) + "。确认后将调用存储过程 sp_borrow_copy，并由触发器写入审计。",
     book: book,
     confirmText: "确认借阅",
     onConfirm: async function () {

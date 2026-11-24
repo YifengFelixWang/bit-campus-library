@@ -8,7 +8,7 @@ import org.springframework.stereotype.Repository;
 @Repository
 class IamUsers {
     record Credential(long id, String passwordHash) {}
-    record User(long id, String username, List<String> roles) {}
+    record User(long id, String username, String displayName, List<String> roles) {}
 
     private final JdbcTemplate jdbc;
 
@@ -23,7 +23,7 @@ class IamUsers {
 
     Optional<User> enabledUser(long id) {
         return jdbc.query("""
-                SELECT u.user_id, u.username, r.role_code
+                SELECT u.user_id, u.username, u.display_name, r.role_code
                 FROM iam.app_user u
                 LEFT JOIN iam.user_role ur ON ur.user_id = u.user_id
                 LEFT JOIN iam.app_role r ON r.role_id = ur.role_id
@@ -32,12 +32,13 @@ class IamUsers {
                 """, rs -> {
                     if (!rs.next()) return Optional.empty();
                     String username = rs.getString("username");
+                    String displayName = rs.getString("display_name");
                     var roles = new java.util.ArrayList<String>();
                     do {
                         String role = rs.getString("role_code");
                         if (role != null) roles.add(role);
                     } while (rs.next());
-                    return Optional.of(new User(id, username, List.copyOf(roles)));
+                    return Optional.of(new User(id, username, displayName == null || displayName.isBlank() ? username : displayName, List.copyOf(roles)));
                 }, id);
     }
 }

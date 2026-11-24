@@ -24,7 +24,7 @@ class IdentityController {
     private final Sessions sessions;
     private final ApplicationAvailability availability;
     private final String dummyHash;
-    private static final IamUsers.User SYNC_BOT = new IamUsers.User(0, "sync-bot", List.of("SYNC"));
+    private static final IamUsers.User SYNC_BOT = new IamUsers.User(0, "sync-bot", "sync-bot", List.of("SYNC"));
     private final byte[] syncAuthorization;
 
     IdentityController(IamUsers users, Passwords passwords, Sessions sessions, ApplicationAvailability availability,
