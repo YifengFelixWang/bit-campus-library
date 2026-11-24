@@ -14,6 +14,7 @@
     "report-export": { title: "统计导出", sub: "导出与报表查询一致的结果行", eyebrow: "REPORTS", perm: "report:read" },
     data: { title: "数据导入导出", sub: "在浏览器本地完成 CSV / JSON 的上传、预览、导入与下载", eyebrow: "DATA I/O", perm: "data:export" },
     backup: { title: "备份与恢复", sub: "应用界面发起服务器端快照，也可下载或上传备份文件", eyebrow: "BACKUP", perm: "backup:manage" },
+    connection: { title: "数据库连接", sub: "当前连的是哪个库、哪个账号、多少会话；只读查询，不回传口令", eyebrow: "CONNECTION", perm: "server:manage" },
     servers: { title: "主备服务器", sub: "图形化展示 GaussDB 主备拓扑、心跳、复制延迟与自动故障转移", eyebrow: "HIGH AVAILABILITY", perm: "server:manage" },
     audit: { title: "审计日志", sub: "记录登录、借阅、触发器、备份与主备切换等关键事件", eyebrow: "AUDIT", perm: "audit:read" }
   };

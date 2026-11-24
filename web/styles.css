@@ -2305,12 +2305,14 @@ button.notice-link {
 }
 
 @media (max-width: 1080px) {
-  .console-shell { grid-template-columns: 1fr; }
-  .console-side { position: static; height: auto; padding: 16px 18px; gap: 14px; }
+  /* 窄屏改成块级堆叠：网格模式下侧栏虽只有 69px，行高却被撑到 175px，标题上方留一大块空白 */
+  .console-shell { display: block; min-height: 0; }
+  .console-side { position: sticky; top: 0; z-index: 20; height: auto; padding: 12px 18px; gap: 10px; }
   .console-brand { display: none; }
   .side-nav { flex-direction: row; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
   .side-nav::-webkit-scrollbar { display: none; }
-  .side-link { flex: 0 0 auto; padding: 8px 11px; white-space: nowrap; }
+  /* 横排时不能继承侧栏的 width:100%，否则每项都占满整行，导航被撑到几千像素宽 */
+  .side-link { width: auto; flex: 0 0 auto; padding: 8px 11px; white-space: nowrap; }
   .side-link.is-active { box-shadow: inset 0 -3px 0 var(--accent); }
   .console-side-foot { display: none; }
   .console-main { padding: 22px 20px 46px; }

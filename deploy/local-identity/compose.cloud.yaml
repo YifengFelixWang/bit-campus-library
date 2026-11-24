@@ -5,6 +5,11 @@ services:
     networks: [campus]
   catalog-service:
     networks: [campus]
+    environment:
+      # 电子书放宿主机目录：catalog 写、Nginx 读同一块盘
+      CATALOG_UPLOAD_EBOOK_DIR: /data/ebooks
+    volumes:
+      - /opt/library-files:/data/ebooks:rw
   loan-service:
     networks: [campus]
   report-service:

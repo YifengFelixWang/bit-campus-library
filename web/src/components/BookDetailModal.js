@@ -1,4 +1,4 @@
-import { computed } from "../../vendor/vue.esm-browser.prod.js";
+import { computed, ref, watch } from "../../vendor/vue.esm-browser.prod.js";
 import { store } from "../store.js";
 import { api } from "../services/api.js";
 import { fmtDate, bookScore, scoreText } from "../core/utils.js";
@@ -32,8 +32,26 @@ export default {
       if (!book.value) return "已上架";
       return book.value.shelf_status === "warehouse" ? "仓库待上架" : (book.value.shelf_status === "off_shelf" ? "已下架" : "已上架");
     });
-    const hasPdf = computed(function () { return Boolean(book.value && book.value.pdf_blob); });
-    const canReadPdf = computed(function () { return api.can("pdf:read", store.user); });
+    // 电子书：向后端问一次有没有 PDF，有就给下载，没有就明说「后端暂无 PDF 版」
+    const ebook = ref(null);
+    const ebookLoading = ref(false);
+    watch(function () { return detailState.bookId; }, function (id) {
+      ebook.value = null;
+      if (!id) return;
+      ebookLoading.value = true;
+      api.ebookMeta(id).then(function (res) {
+        if (detailState.bookId === id) ebook.value = res.ok ? res.data : null;
+      }).catch(function () { ebook.value = null; }).then(function () { ebookLoading.value = false; });
+    }, { immediate: true });
+    const ebookAvailable = computed(function () { return Boolean(ebook.value && ebook.value.available); });
+    const ebookUrl = computed(function () { return ebook.value && ebook.value.url ? ebook.value.url : "#"; });
+    const ebookFileName = computed(function () { return (ebook.value && ebook.value.fileName) || "电子书.pdf"; });
+    const ebookSizeText = computed(function () {
+      const n = Number(ebook.value && ebook.value.sizeBytes);
+      if (!n) return "PDF";
+      return n >= 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB";
+    });
+    const canUploadEbook = computed(function () { return api.can("book:write", store.user); });
     const coverUrl = computed(function () { return book.value ? api.coverUrl(book.value) : ""; });
     const stockText = computed(function () {
       if (!book.value) return "";
@@ -108,8 +126,9 @@ export default {
       });
     }
     return {
-      detailState, book, user, record, left, notOnShelf, shelfLabel, hasPdf, canReadPdf,
+      detailState, book, user, record, left, notOnShelf, shelfLabel,
       coverUrl, stockText, stockClass, reviews, myReview, returned, canWriteRating, canReview, score,
+      ebook, ebookLoading, ebookAvailable, ebookUrl, ebookFileName, ebookSizeText, canUploadEbook,
       scoreLabel, reviewSummary, actionsDisabledText, fmtDate,
       close, borrow, giveBack, preview, loginToRead, writeReview, loginToReview,
       closePdfPreview
@@ -147,22 +166,18 @@ export default {
               <div><span>出版年</span><b>{{ book.year || "—" }}</b></div>
               <div><span>上架状态</span><b>{{ shelfLabel }}</b></div>
               <div><span>评分人数</span><b>{{ book.rating_count || 0 }}</b></div>
-              <div><span>试读文件</span><b>{{ hasPdf ? (book.pdf_pages ? book.pdf_pages + " 页 PDF" : "已上传 PDF") : "未上传" }}</b></div>
+              <div><span>电子书</span><b>{{ ebookLoading ? "读取中…" : (ebookAvailable ? "可下载 PDF" : "暂无 PDF") }}</b></div>
             </div>
 
-            <div v-if="!hasPdf" class="bd-read locked">
-              <span class="bd-read-icon"><svg class="icon" aria-hidden="true"><use href="#i-doc"></use></svg></span>
-              <div class="bd-read-text"><strong>PDF 试读</strong><span>本书暂未提供试读文件</span></div>
-            </div>
-            <div v-else-if="!canReadPdf" class="bd-read locked">
-              <span class="bd-read-icon"><svg class="icon" aria-hidden="true"><use href="#i-key"></use></svg></span>
-              <div class="bd-read-text"><strong>PDF 试读 · 仅限登录用户</strong><span>访客可以查看图书详情，登录后可试读前 10 页</span></div>
-              <button class="btn btn-primary btn-sm" type="button" data-detail-login @click="loginToRead">登录后试读</button>
-            </div>
-            <div v-else class="bd-read">
-              <span class="bd-read-icon unlocked"><svg class="icon" aria-hidden="true"><use href="#i-doc"></use></svg></span>
-              <div class="bd-read-text"><strong>PDF 试读</strong><span>{{ book.pdf_pages ? "共 " + book.pdf_pages + " 页，前端仅展示前 10 页" : "前端仅展示前 10 页" }}</span></div>
-              <button class="btn btn-primary btn-sm" type="button" data-detail-preview @click="preview">开始试读</button>
+            <div class="bd-read" :class="{ locked: !ebookAvailable }" id="ebookCard">
+              <span class="bd-read-icon" :class="{ unlocked: ebookAvailable }"><svg class="icon" aria-hidden="true"><use href="#i-doc"></use></svg></span>
+              <div class="bd-read-text">
+                <strong>电子书下载</strong>
+                <span v-if="ebookLoading">正在确认后端是否提供 PDF…</span>
+                <span v-else-if="ebookAvailable">{{ ebookFileName }} · {{ ebookSizeText }}</span>
+                <span v-else>后端暂无 PDF 版<template v-if="canUploadEbook">，可在控制台「图书管理」上传</template></span>
+              </div>
+              <a v-if="ebookAvailable" class="btn btn-primary btn-sm" id="ebookDownload" :href="ebookUrl" download>下载 PDF</a>
             </div>
 
             <div class="bd-reviews">

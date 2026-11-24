@@ -95,6 +95,13 @@ export default {
       });
     }
 
+    function centerActiveNav() {
+      var active = document.querySelector('.side-nav .side-link[data-tab="' + route.tab + '"]');
+      if (active && active.scrollIntoView) {
+        active.scrollIntoView({ block: "nearest", inline: "center" });
+      }
+    }
+
     function mount(tab) {
       if (!ready.value || route.name !== "console") return;
       if (!window.TataConsole || typeof window.TataConsole.mount !== "function") return;
@@ -118,6 +125,12 @@ export default {
         ready.value = true;
         error.value = "";
         mount(route.tab);
+      }).then(function () {
+        // 窄屏下侧栏变成横向滚动条，不把当前项滚进来就会永远显示第一项（图书管理）。
+        // 各页渲染是异步的，滚动要等 DOM 落定后再补两次，否则会滚到空处。
+        centerActiveNav();
+        window.setTimeout(centerActiveNav, 150);
+        window.setTimeout(centerActiveNav, 450);
       }).catch(function (err) {
         error.value = err && err.message ? err.message : String(err);
         toast("管理控制台加载失败，请刷新页面重试", "error");
@@ -185,6 +198,7 @@ export default {
             <button type="button" class="side-link" data-tab="report-export" data-perm="report:read"><svg class="icon"><use href="#i-data"></use></svg>统计导出</button>
             <button type="button" class="side-link" data-tab="data" data-perm="data:export"><svg class="icon"><use href="#i-data"></use></svg>导入导出</button>
             <button type="button" class="side-link" data-tab="backup" data-perm="backup:manage"><svg class="icon"><use href="#i-archive"></use></svg>备份与恢复</button>
+            <button type="button" class="side-link" data-tab="connection" data-perm="server:manage"><svg class="icon"><use href="#i-grid"></use></svg>数据库连接</button>
             <button type="button" class="side-link" data-tab="servers" data-perm="server:manage"><svg class="icon"><use href="#i-server"></use></svg>主备服务器</button>
             <button type="button" class="side-link" data-tab="audit" data-perm="audit:read"><svg class="icon"><use href="#i-log"></use></svg>审计日志</button>
           </nav>

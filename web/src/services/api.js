@@ -737,6 +737,22 @@ export const api = {
     return sendJson("/api/catalog/reviews" + (bookId ? "?bookId=" + bookId : ""), "GET", null);
   },
 
+  /** 电子书元数据：available=false 表示后端没有 PDF 版 */
+  async ebookMeta(bookId) {
+    try {
+      return { ok: true, data: await getJson("/api/catalog/books/" + Number(bookId) + "/ebook") };
+    } catch (e) {
+      return { ok: false, message: e.message };
+    }
+  },
+
+  /** 馆员上传或替换电子书（PDF） */
+  async uploadEbook(bookId, file) {
+    const form = new FormData();
+    form.append("file", file);
+    return sendForm("/api/catalog/books/" + Number(bookId) + "/ebook", form);
+  },
+
   async deleteReview(id) {
     return sendJson("/api/catalog/reviews/" + id, "DELETE", null);
   },

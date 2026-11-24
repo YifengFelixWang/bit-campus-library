@@ -385,6 +385,7 @@
       '  <label class="field"><span>简介</span><textarea id="bfDesc" rows="3">' + esc(book ? book.desc : "") + "</textarea></label>",
       '  <div class="form-row">',
       '    <label class="field"><span>封面图片</span><input id="bfCover" type="file" accept="image/png,image/jpeg"><small>PNG / JPEG，最大 2 MB；保存后立即生效。</small></label>',
+      '    <label class="field"><span>电子书 PDF</span><input id="bfEbook" type="file" accept="application/pdf"><small>上传后所有读者都能下载；已有 PDF 会被覆盖，最大 80 MB。</small></label>',
       '    <div class="field"><span>预览</span><div id="bfPreview" style="min-height:96px">' +
         (currentCover ? '<img src="' + esc(currentCover) + '" alt="" style="width:72px;border-radius:8px">' : '<span class="hint">暂无封面</span>') +
         "</div></div>",
@@ -424,6 +425,14 @@
         if (!res.ok) { C.toast("保存失败：" + res.message, "error"); return false; }
 
         var targetId = book ? book.id : (res.data && res.data.bookId);
+
+        // 电子书：选了文件就先上传，失败要明确报出来，不能静默当成功
+        var ebookInput = document.getElementById("bfEbook");
+        if (targetId && ebookInput && ebookInput.files && ebookInput.files[0]) {
+          var up = await api().uploadEbook(targetId, ebookInput.files[0]);
+          if (!up.ok) { C.toast("电子书上传失败：" + up.message, "error"); return false; }
+          C.toast("电子书已上传，读者可下载");
+        }
 
         // 登记副本：后端 /api/copies/batch 一次补齐到目标册数（含快照 upsert）
         if (targetId && addCopies > 0) {

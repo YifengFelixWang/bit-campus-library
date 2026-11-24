@@ -29,7 +29,7 @@
           title: "运维管理员工作台",
           desc: "职责：查看数据库状态、备份恢复、主备切换。执行端由 E 的 dbops-service 提供。",
           items: [
-            ["数据库连接状态", "dbops-service · 真实状态", "READY", "servers"],
+            ["数据库连接状态", "dbops-service · 真实状态", "READY", "connection"],
             ["备份 / 恢复任务", "dbops-service · 已接入", "READY", "backup"],
             ["主备拓扑与切换", "dbops-service · 已接入", "READY", "servers"],
             ["审计日志", "loan.loan_audit · 待接入", "PENDING"]
@@ -500,15 +500,57 @@
     if (bar) bar.onclick = dispatch;
   }
 
-  // ---------------------------------------------------------------- 主备服务器（真实状态）
-  C.registry.servers = async function () {
+  // ---------------------------------------------------------------- 数据库连接（真实状态）
+  C.registry.connection = async function () {
     C.setActions([
-      '<button class="btn btn-ghost btn-sm" type="button" data-opact="refresh">' + C.icon("refresh") + "刷新状态</button>",
-      '<button class="btn btn-primary btn-sm" type="button" data-opact="switch-open">切换主备</button>'
+      '<button class="btn btn-ghost btn-sm" type="button" data-opact="refresh">' + C.icon("refresh") + "刷新状态</button>"
     ].join(""));
 
     var res = await api().opsStatus(true);
     var d = res.ok ? res.data : null;
+    if (!d) {
+      C.body().innerHTML = '<div class="panel"><div class="panel-head"><div><h2>数据库连接</h2>'
+        + "<p>运维服务不可达，暂时读不到连接信息。</p></div></div>"
+        + '<p class="hint" style="color:#c0392b">' + esc(res.message || "请求失败") + "</p></div>";
+      return;
+    }
+    var db = d.database || {};
+    var online = db.reachable !== false;
+    var rows = [
+      ["数据库", db.database || "—"],
+      ["连接账号", db.databaseUser || "—"],
+      ["会话 / 连接数", String(db.connections == null ? "—" : db.connections)],
+      ["最近采集", C.fmtDateTime(d.collectedAt) + (d.durationMs != null ? "（耗时 " + d.durationMs + " ms）" : "")],
+      ["服务角色", d.primary ? "主备部署 · 主节点 " + (typeof d.primary === "string" ? d.primary : d.primary.name) : "单实例部署（未配置备节点）"],
+      ["任务存储", d.taskStore || "—"]
+    ].map(function (r) {
+      return '<div style="display:flex;gap:16px;padding:9px 0;border-bottom:1px solid #eef2f6">'
+        + '<span class="small muted" style="width:110px;flex:0 0 110px">' + esc(r[0]) + "</span>"
+        + '<span class="mono" style="flex:1;word-break:break-all">' + esc(r[1]) + "</span></div>";
+    }).join("");
+
+    C.body().innerHTML = [
+      '<div class="panel"><div class="panel-head"><div><h2>数据库连接</h2>',
+      "<p>连接信息由 dbops-service 通过 gsql 读取，不回传口令。</p></div>",
+      C.badge(online ? "已连接" : "不可达", online ? "green" : "red") + "</div>",
+      rows,
+      '<p class="hint" style="margin-top:12px">版本：<span class="mono">' + esc(db.version || "—") + "</span></p>",
+      "</div>"
+    ].join("");
+  };
+
+  // ---------------------------------------------------------------- 主备服务器（真实状态）
+  C.registry.servers = async function () {
+    var res = await api().opsStatus(true);
+    var d = res.ok ? res.data : null;
+    var singleNode = !(d && d.replication && d.replication.configured);
+    // 单实例部署没有备节点，切换按钮点了只会失败，直接禁用并说明原因
+    C.setActions([
+      '<button class="btn btn-ghost btn-sm" type="button" data-opact="refresh">' + C.icon("refresh") + "刷新状态</button>",
+      singleNode
+        ? '<button class="btn btn-primary btn-sm" type="button" disabled title="当前为单实例部署，未配置备节点">切换主备</button>'
+        : '<button class="btn btn-primary btn-sm" type="button" data-opact="switch-open">切换主备</button>'
+    ].join(""));
     if (!d) {
       C.body().innerHTML = [
         '<div class="panel"><div class="panel-head"><div><h2>主备拓扑</h2>',
@@ -526,8 +568,11 @@
     var rep = d.replication || {};
     var single = !rep.configured;
     var nodeHtml = nodes.map(function (node) {
-      var roleText = node.role === "primary" ? "主节点" : (node.role === "standby" ? "备节点" : "角色未知");
-      var tone = node.status !== "online" ? "red" : (node.role === "primary" ? "green" : "blue");
+      // 单实例时后端没有主备角色，这里按「主节点 · 单实例」显示，而不是角色未知
+      var roleText = node.role === "primary" ? "主节点"
+        : node.role === "standby" ? "备节点"
+        : (single ? "主节点 · 单实例" : "角色未知");
+      var tone = node.status !== "online" ? "red" : (node.role === "standby" ? "blue" : "green");
       return '<div style="border:1px solid #e3ebf3;border-radius:10px;padding:14px 16px;min-width:280px;flex:1">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
         "<strong>" + esc(node.name) + "</strong>" + C.badge(roleText, tone) + "</div>" +
