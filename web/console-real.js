@@ -522,7 +522,9 @@
       ["会话 / 连接数", String(db.connections == null ? "—" : db.connections)],
       ["最近采集", C.fmtDateTime(d.collectedAt) + (d.durationMs != null ? "（耗时 " + d.durationMs + " ms）" : "")],
       ["服务角色", d.primary ? "主备部署 · 主节点 " + (typeof d.primary === "string" ? d.primary : d.primary.name) : "单实例部署（未配置备节点）"],
-      ["任务存储", d.taskStore || "—"]
+      ["任务存储", d.taskStore && typeof d.taskStore === "object"
+        ? ((d.taskStore.path || "—") + (d.taskStore.count != null ? "（" + d.taskStore.count + " 个任务）" : ""))
+        : (d.taskStore || "—")]
     ].map(function (r) {
       return '<div style="display:flex;gap:16px;padding:9px 0;border-bottom:1px solid #eef2f6">'
         + '<span class="small muted" style="width:110px;flex:0 0 110px">' + esc(r[0]) + "</span>"
@@ -567,6 +569,10 @@
     var nodes = d.nodes || [];
     var rep = d.replication || {};
     var single = !rep.configured;
+    function dbStateText(state) {
+      var map = { Normal: "正常", NeedRepair: "待修复", Starting: "启动中", Unknown: "未知" };
+      return map[state] || state || "未知";
+    }
     var nodeHtml = nodes.map(function (node) {
       // 单实例时后端没有主备角色，这里按「主节点 · 单实例」显示，而不是角色未知
       var roleText = node.role === "primary" ? "主节点"
@@ -578,7 +584,7 @@
         "<strong>" + esc(node.name) + "</strong>" + C.badge(roleText, tone) + "</div>" +
         '<div class="small muted">地址：' + esc(node.host + ":" + node.port) + "</div>" +
         '<div class="small muted">容器：<span class="mono">' + esc(node.container) + "</span></div>" +
-        '<div class="small muted">进程：' + (node.status === "online" ? "运行中" : "未运行") + " · 数据库状态：" + esc(node.dbState) + "</div>" +
+        '<div class="small muted">进程：' + (node.status === "online" ? "运行中" : "未运行") + " · 数据库状态：" + esc(dbStateText(node.dbState)) + "</div>" +
         (node.error ? '<div class="small" style="color:#c0392b;margin-top:6px">' + esc(node.error) + "</div>" : "") +
         "</div>";
     }).join("");
