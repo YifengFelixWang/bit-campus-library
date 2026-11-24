@@ -86,3 +86,21 @@ E: add deployment, runbook and real test evidence
 ```
 
 提交前确认 `.env`、`backups/*.dump`、`docs/e-evidence/*.png` 的取舍；截图可以作为课程证据入库，dump 不要入库。
+
+---
+
+## 5. 2026-11-24 补交文件
+
+```
+database/patch/2026-11-24_self_registered_readers.sql   共享读者角色 + actor_id + ensure_borrower
+database/patch/2026-11-24_backfill_loan_snapshots.sql   借阅快照补齐
+database/patch/2026-11-24_catalog_publish_info.sql      ISBN / 出版社 / 出版年
+database/patch/2026-11-24_ebook.sql                     电子书元数据表
+database/patch/2026-11-24_ebook_seed.sql                两本原版 PDF 登记
+database/patch/2026-11-24_import_reference_books.sql    5 本参考书 + 副本 + 快照 + 电子书
+database/patch/2026-11-24_import_reference_covers.sql   5 张封面与作者/出版社
+web/src/components/BookDetailModal.js                   电子书下载卡片
+services/catalog-service/.../EbookController.java       电子书查询/下载/上传
+services/loan-service/.../LoanController.java           GET /api/availability
+docs/e-change_logs/                                     本轮问题清单与修法
+```

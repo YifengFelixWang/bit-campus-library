@@ -46,3 +46,16 @@
 | 环境和维护说明 | [环境记录](00-环境记录.md)、[重建和导出顺序](06-重建顺序.md)、[分工说明](使用说明-全组.md) |
 
 重新制作供全组使用的快照时，在空开发库中装载源建表、授权和演示种子，再导出。这样快照中的账号保持可由各组员独立初始化的状态。
+
+---
+
+## 2026-11-24 增量
+
+| 变更 | 脚本 |
+| --- | --- |
+| 新增 `catalog.ebook`（电子书元数据，一本书一行） | `database/patch/2026-11-24_ebook.sql` |
+| `catalog.book.isbn`、`loan.book_snapshot.isbn` 放开为空 | `database/patch/2026-11-24_import_reference_books.sql` 开头 |
+| 书目补出版社与出版年 | `database/patch/2026-11-24_catalog_publish_info.sql` |
+| 自助注册读者的共享库角色 | `database/patch/2026-11-24_self_registered_readers.sql` |
+
+`catalog.ebook` 只存元数据，文件在宿主机 `/opt/library-files`。当前规模：4 个 schema、23 张表、10 个登录角色。

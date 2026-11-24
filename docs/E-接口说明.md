@@ -167,3 +167,41 @@
 - D 的对象核对 SQL 挂载在 `/opt/dbops/sql/15-对象核对清单.sql`，恢复任务会自动执行并把输出写进任务日志；
 - 备份/恢复/切换串行执行，同一时间只有一个任务处于 `RUNNING`，其余排队；
 - 任务记录落在 `OPS_TASK_DIR`，业务库恢复不会清掉运维历史。
+
+---
+
+## 2026-11-24 新增：电子书与库存接口
+
+这几条不在 dbops 里，但运维/联调会用到，一起记在这里。
+
+### GET `/api/availability`（借阅服务）
+公开，无需令牌。返回每本书的在架数与总册数，不含副本条码：
+
+```json
+[{"book_id":6,"available":2,"total":2}, ...]
+```
+
+读者端首屏的「可借 N 册」用它。以前匿名拿不到副本明细，前端回退成馆藏总数，导致访客看到 8、登录后看到 6。
+
+### GET `/api/catalog/books/{id}/ebook`（书目服务）
+公开。有文件时：
+
+```json
+{"bookId":6,"available":true,"fileName":"book-6.pdf","format":"pdf",
+ "sizeBytes":6807346,"updatedAt":"...","url":"/api/catalog/books/6/ebook/file"}
+```
+
+没有时只返回 `{"bookId":1,"available":false}`，前端据此显示「后端暂无电子书」。
+
+### GET `/api/catalog/books/{id}/ebook/file`
+公开下载，`Content-Type` 为 `application/pdf` 或 `application/epub+zip`，`Content-Disposition` 固定 `book-<id>.<ext>`。
+
+### POST `/api/catalog/books/{id}/ebook`
+需要馆员及以上（`Authorization: Bearer <token>`），`multipart/form-data`，字段名 `file`。
+校验文件头（`%PDF-` 或 ZIP），上限 300 MB；落盘为 `ebook-<id>.<ext>`，同 id 覆盖。
+
+```bash
+curl -X POST http://<host>/api/catalog/books/6/ebook \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "file=@book.pdf;type=application/pdf"
+```

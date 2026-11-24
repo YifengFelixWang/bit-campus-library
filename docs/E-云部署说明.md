@@ -178,3 +178,44 @@ export LD_LIBRARY_PATH=$GAUSSHOME/lib:/home/user/og/dependency
 - 数据库、18085 不暴露公网；
 - 定期轮换 `ops1` 口令；
 - `dbops-service` 挂载 `docker.sock` 等价 root，云上只给受信管理员使用，或改为受限 API。
+
+---
+
+## 2026-11-24 变更：电子书与上传限制
+
+### 新增挂载
+
+`catalog-service` 需要写电子书目录，`compose.cloud.yaml` 已加：
+
+```yaml
+  catalog-service:
+    environment:
+      CATALOG_UPLOAD_EBOOK_DIR: /data/ebooks
+    volumes:
+      - /opt/library-files:/data/ebooks:rw
+```
+
+宿主机目录必须让容器用户可写（镜像里是 uid 10001）：
+
+```bash
+chown 10001:0 /opt/library-files && chmod 775 /opt/library-files
+```
+
+否则上传时报 `Permission denied`，接口统一回 503。
+
+### 两处上传上限必须同时放宽
+
+| 层 | 配置 | 现值 |
+| --- | --- | --- |
+| Nginx | `location /api/catalog/` 的 `client_max_body_size` | 320m |
+| 容器 | `spring.servlet.multipart.max-file-size` | 300MB |
+
+只改一处仍会失败：网关偏小是 413，容器偏小是启动即拒，表现都像「点了没反应」。
+
+### ISBN 可空
+
+openGauss 的 A 兼容模式把 `''` 当 NULL，因此 `catalog.book.isbn` 与 `loan.book_snapshot.isbn` 已改为可空；导入内部资料时 ISBN 直接留空。
+
+### 备份注意
+
+`/opt/library-files` 里的电子书不在数据库备份范围内。库备份只保证元数据（`catalog.ebook`）一致，换机器时要把这个目录一起带走。
