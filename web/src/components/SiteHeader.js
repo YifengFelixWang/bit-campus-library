@@ -2,7 +2,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from "../../vendor/vue.e
 import { store, isStaff, isAdmin, myBorrowCount } from "../store.js";
 import { api } from "../services/api.js";
 import { roleName } from "../core/utils.js";
-import { openLogin } from "../core/login.js";
+import { openLogin, loginState } from "../core/login.js";
 import { confirmAction } from "../core/modal.js";
 import { toast } from "../core/io.js";
 import { route, navState, navigate } from "../router.js";
@@ -82,6 +82,7 @@ export default {
       if (accountWrap.value && !accountWrap.value.contains(event.target)) closeMenu();
     }
     function login() { closeMenu(); openLogin(); }
+    function register() { closeMenu(); openLogin(); loginState.mode = "register"; }
     function switchAccount() {
       closeMenu();
       openLogin();
@@ -125,7 +126,7 @@ export default {
 
     return {
       store, route, user, staff, admin, borrowCount, primary, nodeState, clusterText, clusterTitle,
-      menuOpen, accountWrap, navClass, toggleMenu, login, switchAccount,
+      menuOpen, accountWrap, navClass, toggleMenu, login, register, switchAccount,
       consoleEntry, clusterEntry, logout, roleName
     };
   },
@@ -161,6 +162,7 @@ export default {
             <svg class="icon" aria-hidden="true"><use href="#i-grid"></use></svg><span>管理控制台</span>
           </a>
           <template v-if="!user">
+            <button class="login-btn register-btn" type="button" id="registerBtn" @click="register">注册</button>
             <button class="login-btn" type="button" id="loginBtn" @click="login">
               <svg class="icon" aria-hidden="true"><use href="#i-login"></use></svg>登录
             </button>

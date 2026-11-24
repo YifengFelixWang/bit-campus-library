@@ -1,0 +1,24 @@
+# 云上覆盖层：只放和本地不一样的部分（网络、公网端口、原书文件挂载）
+# 用法：docker compose -f compose.yaml -f compose.web.yaml -f compose.cloud.yaml up -d
+services:
+  identity-service:
+    networks: [campus]
+  catalog-service:
+    networks: [campus]
+  loan-service:
+    networks: [campus]
+  report-service:
+    networks: [campus]
+  dbops-service:
+    networks: [campus]
+  web:
+    networks: [campus]
+    ports: !override
+      - "8080:80"
+    volumes:
+      # 原始书籍文件，只读挂进 Nginx
+      - /opt/library-files:/usr/share/nginx/files:ro
+networks:
+  campus:
+    name: campus-net
+    external: true

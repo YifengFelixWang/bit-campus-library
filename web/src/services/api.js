@@ -641,6 +641,23 @@ export const api = {
       return { ok: false, message: error.status === 401 ? "账号或密码不正确，或账号已停用。" : "登录失败，请检查身份服务连接。" };
     }
   },
+  async register(username, password, displayName) {
+    try {
+      const created = await getJson("/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password, displayName })
+      });
+      return { ok: true, user: created };
+    } catch (error) {
+      const map = {
+        409: "这个用户名已经有人用了，换一个。",
+        429: "注册太频繁，等一分钟再试。",
+        400: "用户名或密码格式不对：用户名 3–32 位、字母开头，密码至少 8 位。"
+      };
+      return { ok: false, message: map[error.status] || "注册失败，请稍后再试。" };
+    }
+  },
   logout: clearToken,
   roleLabel: function (role) { return ROLE_LABEL[role] || role; },
 

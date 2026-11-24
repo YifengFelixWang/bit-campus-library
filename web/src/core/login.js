@@ -7,9 +7,19 @@ import { store, refreshStore } from "../store.js";
 
 export const loginState = reactive({
   visible: false,
+  mode: "login",        // login | register
   username: "",
   password: "",
   loginError: "",
+  submitting: false
+});
+
+export const registerState = reactive({
+  username: "",
+  password: "",
+  confirm: "",
+  displayName: "",
+  error: "",
   submitting: false
 });
 
@@ -18,6 +28,8 @@ let pendingAfterLogin = null;
 export function openLogin(reason, onSuccess) {
   pendingAfterLogin = typeof onSuccess === "function" ? onSuccess : null;
   loginState.visible = true;
+  loginState.mode = "login";
+  registerState.error = "";
   loginState.username = "";
   loginState.password = "";
   loginState.loginError = "";
@@ -61,3 +73,33 @@ export async function submitLogin() {
   if (callback) callback();
 }
 
+export async function submitRegister() {
+  if (registerState.submitting) return;
+  registerState.error = "";
+  const username = registerState.username.trim();
+  if (!/^[A-Za-z][A-Za-z0-9_]{2,31}$/.test(username)) {
+    registerState.error = "用户名 3–32 位，字母开头，可以带数字和下划线。";
+    return;
+  }
+  if (registerState.password.length < 8) {
+    registerState.error = "密码至少 8 位。";
+    return;
+  }
+  if (registerState.password !== registerState.confirm) {
+    registerState.error = "两次输入的密码不一样。";
+    return;
+  }
+  registerState.submitting = true;
+  const result = await api.register(username, registerState.password, registerState.displayName.trim());
+  registerState.submitting = false;
+  if (!result.ok) {
+    registerState.error = result.message;
+    return;
+  }
+  toast("注册好了，正在给你登录");
+  loginState.username = username;
+  loginState.password = registerState.password;
+  loginState.mode = "login";
+  registerState.username = registerState.password = registerState.confirm = registerState.displayName = "";
+  await submitLogin();
+}

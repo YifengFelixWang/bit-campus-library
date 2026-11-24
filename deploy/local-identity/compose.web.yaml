@@ -23,8 +23,9 @@ services:
       REPORT_SYNC_TOKEN: ${REPORT_SYNC_TOKEN:-}
   dbops-service:
     build:
-      context: ../..
-      dockerfile: services/dbops-service/Dockerfile
+      # 上下文必须是服务目录：Dockerfile 里是 COPY server.py ./ ，指到仓库根会找不到
+      context: ../../services/dbops-service
+      dockerfile: Dockerfile
     ports:
       - "127.0.0.1:18085:18085"
     depends_on:
