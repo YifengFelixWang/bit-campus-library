@@ -1,74 +1,59 @@
-# 校园图书室微服务
+# BIT 书屋 · 校园图书借阅系统
 
-打开 B 的书屋页面可浏览书目。登录由 A 验证密码，B 和 C 向 A 核验同一枚令牌后分别访问 D 的书目库表和借阅库表。
+BIT 书屋把找书、借还、馆藏管理和借阅统计放在同一个网页里。读者用自己的账号借书，馆员、数据分析员和运维员登录后，从右上角的 **管理控制台** 进入各自的工作页面。
 
-| 负责人 | 共享内容 |
+**云端现状（2026 年 11 月 24 日）**：书屋首页可以打开。云服务器上运行着网页、身份、馆藏、借阅、报表、运维六个应用容器，以及一个 openGauss 数据库容器。当天从网页实际查书时，书目列表和按书名搜索都返回了 `503`。当前云库的只读核对结果是 `ready_columns = 0`，即在所检查的 `library` 库中未查到馆藏查询需要的四个扩展字段。**当前云端还不能演示从找书到借还的完整流程。** 仓库里有相应的[馆藏扩展 SQL](database/catalog/010_web_schema.sql)。
+
+## 读者怎样借还一本书
+
+以下是馆藏查询正常时的使用方法。已有小组演示地址的同学，用浏览器打开书屋即可。
+
+1. 点 **全部图书**，输入书名或作者，选择一本还有可借副本的书。当前云端若显示“查询失败”，不能据此判断馆内没有这本书。
+2. 点右上角 **登录**，输入读者账号和书屋密码。点自己的用户名，可查看本次使用的借阅数据库身份。用 `reader01` 登录应看到 `db_loan_reader01`；用 `reader02` 登录应看到 `db_loan_reader02`。
+3. 选中图书，点 **确认借阅**。打开 **我的借阅**，核对书名、借出日期和应还日期。
+4. 要归还时，在 **我的借阅** 找到同一条记录，点 **归还 → 确认归还**。要验证个人记录隔离，可在用户名菜单中选择 **切换账号**，再查看另一位读者的借阅记录。[读者身份实测记录](docs/读者登录联调.md)
+
+## 工作人员怎样使用控制台
+
+| 书屋账号 | 页面 | 可以做什么 |
+| --- | --- | --- |
+| `librarian01` 馆员 | 图书管理、借阅管理 | 查找或维护书目，按书名、条码核对借阅及归还记录。 |
+| `analyst01` 数据分析员 | 报表查询、借阅统计、统计导出 | 按分类和借阅状态筛选，查看借阅次数及未归还数，用相同条件下载 CSV 并核对结果。 |
+| `ops1` 运维员 | 主备服务器、备份与恢复 | 查看数据库状态，创建备份，在任务详情中确认结果；恢复演示使用独立验证库。主备切换需要已配置的双节点环境。 |
+
+书屋账号由项目管理员提供。需要创建运维演示账号时，管理员可在已配置数据库的开发机运行[本机注册工具](注册运维账号.cmd)。日常借书使用读者自己的网页登录密码。
+
+## 项目是怎样运行的
+
+网页通过统一入口把请求交给五个独立后端。以借书为例，身份服务先确认读者身份，借阅服务用该读者对应的数据库账号调用借书过程，在同一事务中登记借阅并修改副本状态。触发器留下审计记录；报表服务随后读取借阅变化并更新统计。
+
+| 组件 | 负责的事情 |
 | --- | --- |
-| A | [身份服务及读者登录页](services/identity-service)，验证密码、签发令牌、返回读者与角色 |
-| B | [Vue 前端](web/) 和 [书目服务](services/catalog-service/)，含多条件检索、书目维护、书评、公告及 CSV 导入导出 |
-| C | [借阅服务](services/loan-service) 与 [借还过程及授权](database/loan)，根据读者身份选择连接 |
-| D | [openGauss 数据库](database/opengauss/README.md) 和[报表服务](services/report-service/)，负责分析员查询、借阅统计、CSV 导出及借阅增量同步 |
+| [网页](web/)与[网关](deploy/nginx.conf) | 提供读者页和管理控制台，把同一个网站下的请求转给相应服务。 |
+| [身份服务](services/identity-service/) | 验证账号密码、签发登录令牌、返回用户及角色。 |
+| [馆藏服务](services/catalog-service/) | 查书、维护书目、管理评价和公告，处理书目 CSV 导入导出。 |
+| [借阅服务](services/loan-service/) | 选择读者数据库连接，处理借出、归还和个人记录。 |
+| [报表服务](services/report-service/) | 同步借阅变化，按条件查询、统计和导出数据。 |
+| [数据库运维服务](services/dbops-service/) | 检查操作权限，执行备份、恢复及计划内切换，记录任务结果。 |
 
-## 运行完整书屋
+四个业务服务使用 Java，运维服务使用 Python。openGauss 中的身份、馆藏、借阅、报表分别使用不同的 schema 和角色授权。[数据库设计与初始化说明](database/opengauss/README.md)
 
-1. 在 openGauss 中按 [D 的重建说明](database/opengauss/README.md) 准备基础库，再按下表安装尚缺的扩展。
-2. 在 `database/opengauss/.env` 填写数据库连接配置，可从同目录 `env.example` 复制。共用开发密码填写 `LIBRARY_LOCAL_PASSWORD`。各角色使用不同密码时分别配置 `IAM_DB_PASSWORD` 和 `CATALOG_DB_`、`LOAN_DB_` 下的 `READER01_PASSWORD`、`READER02_PASSWORD`、`LIBRARIAN01_PASSWORD`。远程库设置 `LIBRARY_JDBC_URL`。
-3. 新库首次启动前，在私有配置中为 `IAM_SEED_READER01_PASSWORD`、`IAM_SEED_READER02_PASSWORD` 分别设置 12～256 字符的应用密码。需要演示馆员或分析员时，再分别设置 `IAM_SEED_LIBRARIAN01_PASSWORD` 或 `IAM_SEED_ANALYST01_PASSWORD`。已有账号沿用原密码。若各数据库角色使用独立口令，报表的两个连接分别使用 `REPORT_DB_ANALYST_PASSWORD` 和 `REPORT_DB_SYNC_PASSWORD`。
-4. 安装 Java 21、Python 3 和 Maven。从工程根目录运行 `python scripts/run_library.py`，Windows 可双击 [启动书屋.cmd](启动书屋.cmd)。从旧版本升级或修改 Java 源码后先运行一次 `python scripts/run_library.py --build`，确保更新四个 Java 服务。看到 `Ready` 后打开 [BIT 书屋](http://127.0.0.1:8080/)。关闭服务用 Ctrl+C。
-5. 点「全部图书」，按书名、作者等条件检索。登录后点右上角用户名，在账号菜单中查看借阅数据库身份。网页通过同源代理访问服务；本机完整启动使用身份 18081、书目 8082、借阅 18083，可与原来的 A/C 双服务演示并行。日志在 `target/run/`。
+## 在自己的电脑上运行
 
-| 连接到 library 后按顺序执行的 SQL 文件 | 用途 |
+1. 准备 Java 21、Maven、Python 3，以及可访问的 openGauss `library` 库。首次建库按[数据库说明](database/opengauss/README.md)准备用户和基础数据。完整网页还需要按顺序安装[馆藏扩展](database/catalog/010_web_schema.sql)、[书评与公告](database/patch/003_reviews_announcements.sql)和[书目检索函数](database/catalog/020_book_search.sql)。已有数据的库先核对对象，整库恢复只用于空库。
+2. 将 [env.example](database/opengauss/env.example) 复制成同目录的 `.env`，填写自己开发库的连接与业务角色口令。新库首次启用演示账号时，另行设置各自的 `IAM_SEED_…_PASSWORD` 网页密码，长度为 12～256 个字符。已有账号沿用原密码。
+3. 在工程根目录执行下面的命令。看到 `Ready` 后打开 [本机书屋](http://127.0.0.1:8080/)，用完在启动窗口按 **Ctrl+C**。下次也可以双击 [启动书屋.cmd](启动书屋.cmd)。
+
+```sh
+python scripts/run_library.py --build
+```
+
+仓库当前的本地启动器启动四个 Java 业务服务和网页代理。运维后端需另行启动并连接实际数据库工具。组内云端采用 Docker 部署；容器配置和业务入口见[应用编排目录](deploy/local-identity/)。
+
+## 哪些流程已经验证
+
+| 环境 | 实际结果 |
 | --- | --- |
-| [010_web_schema.sql](database/catalog/010_web_schema.sql) | 增加出版信息、馆藏册数及索引，首次从已有副本回填册数 |
-| [003_reviews_announcements.sql](database/patch/003_reviews_announcements.sql) | 评价、公告及书目账户授权 |
-| [020_book_search.sql](database/catalog/020_book_search.sql) | 存储函数检索通道，和动态 SQL 共用 D 的 BIGINT 编号 |
-| [002_procedures.sql](database/loan/002_procedures.sql)、[004_execute_grants.sql](database/loan/004_execute_grants.sql) | 旧库缺少 C 的借还过程、审计触发器或执行授权时，按顺序安装。新版 D 的整库备份已包含这些对象 |
-| [002_demo_books.sql](database/patch/002_demo_books.sql)（可选） | 在原始四本书的演示库里一次性增加 13 本书、作者及副本；预留编号已被使用时中止 |
-
-上述 SQL 用初始化账号执行，例如在工程根目录运行 `gsql -U gaussdb -d library -v ON_ERROR_STOP=1 -f database/catalog/010_web_schema.sql`，再依次替换文件名。现有 A/B/C 联调库保留原数据，可用[对象核对脚本](tests/recovery/15-对象核对清单.sql)检查。整库备份仅用于空库恢复。控制台的运维备份、主备切换、应用账号管理和自助注册仍待接入。
-
-使用 Docker 时，按[容器部署说明](deploy/local-identity/README.md)填写该目录的 `.env`，并按需首次初始化分析员密码。完整书屋使用 `compose.yaml` 和 `compose.web.yaml`，数据库仍由 D 提供。
-
-### 创建运维演示账号
-
-E 首次使用运维账号时，在已配置好数据库的开发机上双击 [注册运维账号.cmd](注册运维账号.cmd)，按提示输入两次自选密码。创建成功后，在书屋登录页输入 `ops1` 即可进入运维工作台。这个本机工具只创建运维演示账号；再次运行会保留原密码。
-
-### 演示 D 的报表
-
-以 `analyst01` 登录书屋并进入控制台。在「报表查询」选择分类和借阅状态，可同时查看结果、SQL 模板与参数。「借阅统计」显示每类图书的借阅次数和未归还次数，「统计导出」可按相同条件下载 `report.csv`。读者账号可用于对照验证报表权限。
-
-本地完整启动器把同一枚内部令牌交给 A 和 D。D 用它向 C 读取借阅变化，按游标更新 `report.loan_fact`，进度可在「借阅统计」底部查看。独立部署时给 A 和 D 配置相同的私有 `REPORT_SYNC_TOKEN`。读者、书目及分类的报表数据目前来自 D 的种子数据，因此新建书目的借阅可能暂时不在报表中。可通过[报表健康接口](http://127.0.0.1:8080/api/reports/health)查看数据库连接状态。
-
-### 已验证的跨服务流程
-
-- 可用 `python tests/web/reader_catalog_flow.py` 复验书名与作者联查、两个读者切换、书目和借阅数据库身份，以及错误密码处理。测试需要 Python Playwright 及 Chromium，也可用 `PLAYWRIGHT_CHROMIUM_EXECUTABLE` 指定浏览器程序。
-- 用 D 的种子数据启动完整书屋后，运行 `python tests/web/analyst_report_flow.py`，按提示输入 `analyst01` 的网页登录密码。脚本核对借阅同步、分类统计、报表筛选和实际下载的 CSV。
-- C 的 `LoanDatabaseIT` 使用应用的真实数据库连接池，在单个回滚事务里验证借出、重复请求、归还和两条审计记录。配置 C 的开发库环境变量后，在 `services/loan-service` 运行 `mvn -Dtest=LoanDatabaseIT test`。测试需要读者有剩余额度以及至少一个可借副本。
-
-## 单独运行 A、C
-
-1. 按 [D 的数据库重建说明](database/opengauss/README.md) 准备 `library` 库，或取得组内现有开发库的连接信息。本机默认端口为 `15432`。
-2. 使用教学库统一开发口令时，将 `database/opengauss/env.example` 复制成同目录的 `.env`，在其中的 `LIBRARY_LOCAL_PASSWORD` 填入你实际设置的数据库角色密码。如各角色使用不同密码，分别通过环境变量提供，详见 [联调说明](docs/读者登录联调.md)。
-3. 准备 Java 21 和 Maven，在工程根目录打开两个 PowerShell 窗口。第一个运行 `.\start-identity.ps1 -InitReaders`，按提示设置两个读者自己的应用密码。第二个运行 `.\start-local.ps1`。数据库里已有读者密码时，启动 A 使用 `.\start-identity.ps1`。
-4. 打开 [读者登录页](http://127.0.0.1:8081/)，分别用 `reader01` 和 `reader02` 登录。页面应依次显示 `db_loan_reader01` 和 `db_loan_reader02`。组内验收步骤和两张实测截图见 [联调说明](docs/读者登录联调.md)。
-
-## C 的借还业务与独立测试
-
-新版 D 快照已包含借还业务对象。使用早期基线并缺少这些对象时，用初始化账户连接 `library`，依次执行 [借还过程](database/loan/002_procedures.sql) 和 [过程授权](database/loan/004_execute_grants.sql)。
-
-C 单独开发时可以在 8081 运行 `python tests/loan/identity_stub.py`，再启动 C，打开 [借阅页面](http://localhost:8083/) 使用替身令牌 `demo-reader-1`、`demo-reader-2`、`demo-librarian`。联调真实 A 时应先退出占用 8081 的替身。借还回归在专用测试库执行 `python tests/loan/acceptance.py`，SQL 回归使用真实读者登录测试库执行 `gsql -h 127.0.0.1 -p 15432 -U db_loan_reader01 -d library -v ON_ERROR_STOP=1 -f tests/loan/database_regression.sql`。
-
-## 文档
-
-- docs/C交付说明.md：实现、接口、权限、协作边界。
-- docs/D联调交接.md：过程签名、数据约定、报表同步。
-- docs/验证记录.md：实际执行结果和待验证事项。
-
-C 的独立页面用于借阅接口调试。小组演示从 B 的书屋首页进入。
-
-
-## 构建和测试
-
-在 services/loan-service 执行 `mvn package`。本机 Windows 若出现 `Unable to establish loopback connection`，可用 `mvn "-DargLine=-Djdk.net.unixdomain.tmpdir=C:/Windows/Temp" package`，前提是该目录可写。正式 Linux 环境无需此参数。
-
-依赖固定为 Spring Boot 3.4.13、Java 21、openGauss JDBC 7.0.0-RC3-og（org.opengauss.Driver）。应用所有数据库连接设置 Asia/Shanghai 时区。
+| 独立 openGauss 联调库 | 已验证两位读者分别登录并使用各自的数据库身份、借书和还书、借阅变化同步、分析员筛选及 CSV 对照。[业务联调记录](docs/d-report/测试记录.md) |
+| 云主机原生数据库实验 | 已有真实的备份、恢复到验证库、主备切换和切换后数据库写入记录。当时的运维页面使用测试身份服务，切换后的写入通过数据库过程完成。[任务记录与截图](docs/e-evidence/README.md) |
+| 11 月 24 日运行中的云端书屋 | 已核对容器清单、首页及五个服务的健康接口。馆藏健康接口显示正常，但访客实际查询返回 `503`，服务器端检查未发现所需四列。云端网页借还、正式登录后的主备切换演示仍待在同一套环境复验。 |
