@@ -1,0 +1,58 @@
+# 当前主备拓扑（最终）
+
+## node-a /home/user/og/data / SQL 15432
+ HA state:           
+	local_role                     : Standby
+	static_connections             : 1
+	db_state                       : Normal
+	detail_information             : Normal
+
+ Senders info:       
+No information 
+ Receiver info:      
+	receiver_pid                   : 4458
+	local_role                     : Standby
+	peer_role                      : Primary
+	peer_state                     : Normal
+	state                          : Normal
+	sender_sent_location           : 0/62FC1E8
+	sender_write_location          : 0/62FC1E8
+	sender_flush_location          : 0/62FC1E8
+	sender_replay_location         : 0/62FC1E8
+	receiver_received_location     : 0/62FC1E8
+	receiver_write_location        : 0/62FC1E8
+	receiver_flush_location        : 0/62FC1E8
+	receiver_replay_location       : 0/62FC1E8
+	sync_percent                   : 100%
+	channel                        : 127.0.0.1:45179<--127.0.0.1:15444
+
+
+## node-b /home/user/og/data-b / SQL 15443
+ HA state:           
+	local_role                     : Primary
+	static_connections             : 1
+	db_state                       : Normal
+	detail_information             : Normal
+
+ Senders info:       
+	sender_pid                     : 4459
+	local_role                     : Primary
+	peer_role                      : Standby
+	peer_state                     : Normal
+	state                          : Streaming
+	sender_sent_location           : 0/62FC1E8
+	sender_write_location          : 0/62FC1E8
+	sender_flush_location          : 0/62FC1E8
+	sender_replay_location         : 0/62FC1E8
+	receiver_received_location     : 0/62FC1E8
+	receiver_write_location        : 0/62FC1E8
+	receiver_flush_location        : 0/62FC1E8
+	receiver_replay_location       : 0/62FC1E8
+	sync_percent                   : 100%
+	sync_state                     : Sync
+	sync_priority                  : 1
+	sync_most_available            : Off
+	channel                        : 127.0.0.1:15444-->127.0.0.1:45179
+
+ Receiver info:      
+No information 

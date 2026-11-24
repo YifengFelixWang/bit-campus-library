@@ -30,35 +30,44 @@ export default {
         : "尚未建立数据库连接";
     });
 
-    // 侧栏节点状态：改读真实接口 /api/catalog/ops/status。
+    // 侧栏节点状态：读 dbops-service 的 /api/ops/status。
     // 以前这行是 console.js 从浏览器本地演示层（localStorage 里的 tata-db-v6）
     // 取的「GaussDB 节点 A · 在线」，跟服务器真实拓扑无关，属于假数据，已断开。
-    // 该接口目前 primary/standby 恒为 null（等 dbops-service 接入），
-    // 此时如实显示「单实例」，不编造节点 A/B。
+    // 服务不可达时明确显示「运维服务不可达」，不沿用旧状态。
     const ops = ref(null);
+    const opsError = ref("");
 
     const nodeLabel = computed(function () {
+      if (opsError.value) return "运维服务不可达";
       const o = ops.value;
       if (!o) return "节点状态读取中";
       const db = o.database || {};
       if (db.reachable === false) return "数据库 · 不可达";
       if (!o.primary) return "单实例 · 在线";
-      const letter = String(o.primary).replace(/^node-/, "").toUpperCase();
+      const primaryName = typeof o.primary === "string" ? o.primary : (o.primary.name || "node-a");
+      const letter = String(primaryName).replace(/^node-/, "").toUpperCase();
       return "主节点 " + letter + " · " + (o.standby ? "备节点在线" : "无备节点");
     });
     const nodeState = computed(function () {
+      if (opsError.value) return "offline";
       const o = ops.value;
       if (!o) return "pending";
       return (o.database && o.database.reachable === false) ? "offline" : "online";
     });
     const nodeTitle = computed(function () {
+      if (opsError.value) return "运维服务不可达：" + opsError.value;
       const o = ops.value;
       if (!o) return "正在读取数据库节点状态";
       const db = o.database || {};
       const version = shortVersion(db.version);
       const parts = [];
       if (version) parts.push(version);
-      parts.push(o.primary ? "主备部署 · 主节点 " + o.primary : "单实例部署（未接入主备）");
+      if (o.primary) {
+        const primaryName = typeof o.primary === "string" ? o.primary : (o.primary.name || "node-a");
+        parts.push("主备部署 · 主节点 " + primaryName);
+      } else {
+        parts.push("单实例部署（未配置备节点）");
+      }
       if (db.connections !== undefined && db.connections !== null) parts.push("连接数 " + db.connections);
       return parts.join(" · ");
     });
@@ -72,9 +81,16 @@ export default {
     function loadOpsStatus() {
       api.opsStatus().then(function (res) {
         // opsStatus() 返回的是 { ok, data } 信封，真正的状态在 data 里
-        const data = res && res.ok === false ? null : (res && res.data ? res.data : res);
+        if (!res || res.ok === false) {
+          opsError.value = (res && res.message) || "dbops-service 未响应";
+          ops.value = null;
+          return;
+        }
+        const data = res.data ? res.data : res;
+        opsError.value = "";
         ops.value = data && typeof data === "object" ? data : null;
-      }).catch(function () {
+      }).catch(function (err) {
+        opsError.value = err && err.message ? err.message : "dbops-service 未响应";
         ops.value = null;
       });
     }

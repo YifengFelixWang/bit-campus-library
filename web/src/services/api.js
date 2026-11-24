@@ -742,8 +742,36 @@ export const api = {
     return sendJson("/api/catalog/announcements/" + id, "DELETE", null);
   },
 
-  async opsStatus() {
-    return sendJson("/api/catalog/ops/status", "GET", null);
+  async opsStatus(refresh) {
+    return sendJson("/api/ops/status" + (refresh ? "?refresh=1" : ""), "GET", null);
+  },
+
+  async opsBackups() {
+    return sendJson("/api/ops/backups", "GET", null);
+  },
+
+  async opsCreateBackup(note) {
+    return sendJson("/api/ops/backups", "POST", { note: note || "" });
+  },
+
+  async opsTasks(limit) {
+    return sendJson("/api/ops/tasks?limit=" + (limit || 20), "GET", null);
+  },
+
+  async opsTask(id) {
+    return sendJson("/api/ops/tasks/" + encodeURIComponent(id), "GET", null);
+  },
+
+  async opsRestore(backupId, targetDatabase) {
+    return sendJson("/api/ops/restores", "POST", {
+      backupId: backupId,
+      targetDatabase: targetDatabase,
+      confirm: true
+    });
+  },
+
+  async opsSwitchover() {
+    return sendJson("/api/ops/switchover", "POST", { confirm: true });
   },
 
   /** 只刷新借阅记录（控制台切到借阅页时调用，避免看到登录时的旧快照） */

@@ -1,0 +1,67 @@
+name: campus-library-ha
+
+services:
+  db-a:
+    build:
+      context: .
+      args:
+        OPENGAUSS_IMAGE: ${OPENGAUSS_IMAGE:-opengauss/opengauss:7.0.0-RC3.B025-amd64-openEuler22.03}
+    image: campus-library-opengauss-ha:7.0
+    platform: linux/amd64
+    container_name: library-opengauss-a
+    hostname: db-a
+    environment:
+      GS_PASSWORD: ${GS_PASSWORD:?Set GS_PASSWORD in .env}
+      NODE_NAME: db-a
+      NODE_ROLE: primary
+      PEER_HOST: db-b
+    ports:
+      - "127.0.0.1:15432:5432"
+    volumes:
+      - db-a-data:/var/lib/opengauss
+    networks:
+      - ha
+    healthcheck:
+      test: ["CMD-SHELL", "gs_ctl query -D /var/lib/opengauss/data | grep -q 'db_state.*Normal'"]
+      interval: 15s
+      timeout: 8s
+      retries: 10
+      start_period: 90s
+
+  db-b:
+    build:
+      context: .
+      args:
+        OPENGAUSS_IMAGE: ${OPENGAUSS_IMAGE:-opengauss/opengauss:7.0.0-RC3.B025-amd64-openEuler22.03}
+    image: campus-library-opengauss-ha:7.0
+    platform: linux/amd64
+    container_name: library-opengauss-b
+    hostname: db-b
+    environment:
+      GS_PASSWORD: ${GS_PASSWORD:?Set GS_PASSWORD in .env}
+      NODE_NAME: db-b
+      NODE_ROLE: standby
+      PEER_HOST: db-a
+    ports:
+      - "127.0.0.1:15433:5432"
+    volumes:
+      - db-b-data:/var/lib/opengauss
+    networks:
+      - ha
+    depends_on:
+      db-a:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "gs_ctl query -D /var/lib/opengauss/data | grep -q 'db_state.*Normal'"]
+      interval: 15s
+      timeout: 8s
+      retries: 10
+      start_period: 120s
+
+networks:
+  ha:
+    name: campus-library-ha
+
+volumes:
+  db-a-data:
+  db-b-data:

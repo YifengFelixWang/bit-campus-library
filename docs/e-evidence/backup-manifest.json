@@ -1,0 +1,13 @@
+{
+  "backupId": "library-20261123-195445-934d.dump",
+  "fileName": "library-20261123-195445-934d.dump",
+  "database": "library",
+  "format": "custom",
+  "source": "gs_dump",
+  "sizeBytes": 54552,
+  "sha256": "5a3702e51ed0bd9cdd824e326520b90c90b0e7022273a444f8168a6025cc5127",
+  "note": "2026-11-23 真实验收基线",
+  "taskId": "OP20261123-195445-6191",
+  "actor": "ops1",
+  "createdAt": "2026-11-23T19:54:46+08:00"
+}

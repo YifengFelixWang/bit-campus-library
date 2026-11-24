@@ -1,0 +1,19 @@
+# title compare
+## source library (changed)
+ book_id |      isbn      |       title        
+---------+----------------+--------------------
+       1 | 978-7-00000001 | 红楼梦【验收改动】
+(1 row)
+
+## restored library_verify_api (original)
+ book_id |      isbn      | title  
+---------+----------------+--------
+       1 | 978-7-00000001 | 红楼梦
+(1 row)
+
+## row counts
+ loans | books | users 
+-------+-------+-------
+     7 |     4 |     4
+(1 row)
+

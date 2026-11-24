@@ -1,0 +1,25 @@
+# 验证库借还（数据库过程层代跑）
+
+说明：C 的 Java loan-service 尚未接入，本记录由 E 直接调用 loan.sp_borrow_copy / sp_return_copy 预演，**不能替代 C 在服务层的正式验收**。
+
+## loan_record
+ loan_id | user_id | copy_id | book_id |  status  |        borrowed_at         |        returned_at         
+---------+---------+---------+---------+----------+----------------------------+----------------------------
+  900001 |       1 |       2 |       2 | RETURNED | 2026-11-23 19:55:26.001613 | 2026-11-23 19:55:31.894237
+(1 row)
+
+
+## book_copy
+ copy_id | book_id |  status   
+---------+---------+-----------
+       2 |       2 | AVAILABLE
+(1 row)
+
+
+## loan_audit
+ audit_id | loan_id | old_status | new_status | operator_user_id |    request_no     |         created_at         
+----------+---------+------------+------------+------------------+-------------------+----------------------------
+        1 |  900001 |            | BORROWED   |                3 | E-VERIFY-BORROW-1 | 2026-11-23 19:55:26.008037
+        2 |  900001 | BORROWED   | RETURNED   |                3 | E-VERIFY-RETURN-1 | 2026-11-23 19:55:31.896737
+(2 rows)
+

@@ -1,0 +1,19 @@
+# HA restore title compare
+## source library (changed after backup)
+ book_id |      isbn      |      title       
+---------+----------------+------------------
+       3 | 978-7-00000003 | 围城【HA后改动】
+(1 row)
+
+## restored library_verify_ha2 (backup value)
+ book_id |      isbn      | title 
+---------+----------------+-------
+       3 | 978-7-00000003 | 围城
+(1 row)
+
+## row counts
+ loans | books | users 
+-------+-------+-------
+     7 |     4 |     4
+(1 row)
+

@@ -1,0 +1,23 @@
+# 真实鉴权与任务落盘
+
+## reader01 读状态
+HTTP 200
+viewer {'username': 'analyst01', 'roles': ['READER']}
+
+## reader01 提交备份（应 403）
+HTTP 403
+{"code": "FORBIDDEN", "message": "该账号没有运维管理权限", "data": null}
+
+## ops1 任务文件（业务库之外）
+OP20261123-195445-6191.json
+OP20261123-195459-e1f6.json
+OP20261123-200618-0ca3.json
+OP20261123-200653-f8a7.json
+OP20261123-201017-abb7.json
+OP20261123-201033-216b.json
+OP20261123-201041-f230.json
+OP20261123-201832-c5fc.json
+
+## 任务目录与数据库目录不是同一路径
+TASK_DIR=/home/user/dbops-tasks
+GAUSSDATA=/home/user/og/data

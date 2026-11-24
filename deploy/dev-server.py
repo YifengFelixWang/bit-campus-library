@@ -27,6 +27,7 @@ ROOT = os.path.normpath(ROOT)
 
 ROUTES = [
     ("/api/catalog/", os.getenv("CATALOG_SERVICE_URL", "http://127.0.0.1:8082")),
+    ("/api/ops/", os.getenv("DBOPS_SERVICE_URL", "http://127.0.0.1:18085")),
     ("/auth/", os.getenv("IDENTITY_SERVICE_URL", "http://127.0.0.1:8081")),
     ("/users/", os.getenv("IDENTITY_SERVICE_URL", "http://127.0.0.1:8081")),
     ("/api/reports/", os.getenv("REPORT_SERVICE_URL", "http://127.0.0.1:18084")),
@@ -127,7 +128,7 @@ def main():
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     print("前端服务已启动：http://localhost:%d" % port)
     print("  静态目录：%s" % ROOT)
-    print("  /api/catalog/ -> 8082   /api/reports/ -> 18084   /api/ -> 8083   /users/ -> 8081")
+    print("  /api/catalog/ -> 8082   /api/ops/ -> 18085   /api/reports/ -> 18084   /api/ -> 8083   /users/ -> 8081")
     print("按 Ctrl+C 停止")
     try:
         server.serve_forever()

@@ -1,0 +1,56 @@
+{
+  "id": "OP20261123-195445-6191",
+  "action": "backup",
+  "actionLabel": "创建数据库备份",
+  "status": "SUCCEEDED",
+  "actor": "ops1",
+  "params": {
+    "note": "2026-11-23 真实验收基线"
+  },
+  "createdAt": "2026-11-23T19:54:45+08:00",
+  "startedAt": "2026-11-23T19:54:45+08:00",
+  "finishedAt": "2026-11-23T19:54:46+08:00",
+  "steps": [
+    {
+      "name": "检查数据库连接",
+      "status": "SUCCEEDED",
+      "startedAt": "2026-11-23T19:54:45+08:00",
+      "finishedAt": "2026-11-23T19:54:45+08:00",
+      "detail": "数据库可连接"
+    },
+    {
+      "name": "导出数据库归档（gs_dump -F c）",
+      "status": "SUCCEEDED",
+      "startedAt": "2026-11-23T19:54:45+08:00",
+      "finishedAt": "2026-11-23T19:54:46+08:00",
+      "detail": "归档已生成，耗时 1106 ms"
+    },
+    {
+      "name": "取回归档文件",
+      "status": "SUCCEEDED",
+      "startedAt": "2026-11-23T19:54:46+08:00",
+      "finishedAt": "2026-11-23T19:54:46+08:00",
+      "detail": "文件 library-20261123-195445-934d.dump"
+    },
+    {
+      "name": "校验归档并登记清单",
+      "status": "SUCCEEDED",
+      "startedAt": "2026-11-23T19:54:46+08:00",
+      "finishedAt": "2026-11-23T19:54:46+08:00",
+      "detail": "SHA-256 5a3702e51ed0bd9c"
+    }
+  ],
+  "result": {
+    "backupId": "library-20261123-195445-934d.dump",
+    "fileName": "library-20261123-195445-934d.dump",
+    "sizeBytes": 54552,
+    "sha256": "5a3702e51ed0bd9cdd824e326520b90c90b0e7022273a444f8168a6025cc5127",
+    "note": "2026-11-23 真实验收基线",
+    "database": "library",
+    "createdAt": "2026-11-23T19:54:46+08:00",
+    "retentionRemoved": []
+  },
+  "error": null,
+  "log": "[2026-11-23T19:54:45+08:00] SUCCEEDED 检查数据库连接\n[2026-11-23T19:54:46+08:00] SUCCEEDED 导出数据库归档（gs_dump -F c）\n[2026-11-23T19:54:46+08:00] SUCCEEDED 取回归档文件\n[2026-11-23T19:54:46+08:00] SUCCEEDED 校验归档并登记清单\n",
+  "version": "1.0.0"
+}

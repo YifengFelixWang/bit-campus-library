@@ -18,15 +18,14 @@ export default {
     const staff = computed(function () { return isStaff(); });
     const admin = computed(function () { return isAdmin(); });
     const borrowCount = computed(function () { return myBorrowCount(); });
-    // 顶部节点徽标：以前读 api.clusterSnapshot()（固定返回 null，演示层残留），
-    // 所以永远只有「主节点」三个字，主备真切换也不会变。
-    // 现在读真实的 /api/catalog/ops/status；该接口暂未接入主备（primary 为 null），
-    // 就如实显示「单实例」，不再编造节点 A/B。
+    // 顶部节点徽标：读 dbops-service 的 /api/ops/status。
+    // primary / standby 是节点对象（含 name、role、dbState），不再是字符串。
     const primary = computed(function () {
       const ops = store.ops;
       if (!ops || !ops.primary) return null;
+      const name = typeof ops.primary === "string" ? ops.primary : (ops.primary.name || "node-a");
       return {
-        id: ops.primary,
+        id: name,
         status: ops.database && ops.database.reachable === false ? "offline" : "online"
       };
     });
@@ -39,7 +38,8 @@ export default {
       const ops = store.ops;
       if (!ops) return "主节点";
       if (!ops.primary) return nodeState.value === "offline" ? "单实例 · 不可达" : "单实例";
-      const letter = String(ops.primary).replace(/^node-/, "").toUpperCase();
+      const name = typeof ops.primary === "string" ? ops.primary : (ops.primary.name || "node-a");
+      const letter = String(name).replace(/^node-/, "").toUpperCase();
       return "主节点 " + letter + (nodeState.value === "offline" ? " · 离线" : "");
     });
     const clusterTitle = computed(function () {
@@ -49,7 +49,10 @@ export default {
       const m = String(db.version || "").match(/openGauss[\w.\-]*\s+[\w.\-]+/i);
       const parts = [];
       if (m) parts.push(m[0]);
-      parts.push(ops.primary ? "主节点 " + ops.primary : "单实例部署（未接入主备）");
+      const primaryName = ops.primary
+        ? (typeof ops.primary === "string" ? ops.primary : (ops.primary.name || "node-a"))
+        : "";
+      parts.push(primaryName ? "主节点 " + primaryName : "单实例部署（未配置备节点）");
       if (db.connections !== undefined && db.connections !== null) parts.push("连接数 " + db.connections);
       return parts.join(" · ");
     });

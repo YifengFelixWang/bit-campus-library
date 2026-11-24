@@ -29,10 +29,10 @@
           title: "运维管理员工作台",
           desc: "职责：查看数据库状态、备份恢复、主备切换。执行端由 E 的 dbops-service 提供。",
           items: [
-            ["数据库连接状态", "catalog-service · 已返回真实连接信息", "READY"],
-            ["备份 / 恢复任务", "dbops-service · E", "PENDING"],
-            ["主备拓扑与切换", "dbops-service · E", "PENDING"],
-            ["审计日志", "dbops-service · E", "PENDING"]
+            ["数据库连接状态", "dbops-service · 真实状态", "READY", "servers"],
+            ["备份 / 恢复任务", "dbops-service · 已接入", "READY", "backup"],
+            ["主备拓扑与切换", "dbops-service · 已接入", "READY", "servers"],
+            ["审计日志", "loan.loan_audit · 待接入", "PENDING"]
           ]
         };
 
@@ -404,27 +404,342 @@
     });
   };
 
-  // ---------------------------------------------------------------- 主备服务器（预留）
+  // ---------------------------------------------------------------- 运维任务（E）
+  var TASK_TEXT = { QUEUED: "排队", RUNNING: "执行中", SUCCEEDED: "成功", FAILED: "失败" };
+  var TASK_TONE = { QUEUED: "gray", RUNNING: "blue", SUCCEEDED: "green", FAILED: "red" };
+
+  function fmtBytes(n) {
+    var value = Number(n) || 0;
+    var units = ["B", "KB", "MB", "GB"];
+    var i = 0;
+    while (value >= 1024 && i < units.length - 1) { value = value / 1024; i++; }
+    return (i === 0 ? String(value) : value.toFixed(1)) + " " + units[i];
+  }
+
+  function taskDetailHtml(task) {
+    if (!task) return '<p class="hint">选择一条任务查看执行步骤与结果。</p>';
+    var steps = (task.steps || []).map(function (step) {
+      var tone = step.status === "SUCCEEDED" ? "green" : (step.status === "FAILED" ? "red" : "blue");
+      return '<div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid #eef3f8">' +
+        C.badge(TASK_TEXT[step.status] || step.status, tone) +
+        '<span style="flex:1">' + esc(step.name) +
+        (step.detail ? '<div class="small muted" style="margin-top:3px">' + esc(step.detail) + "</div>" : "") +
+        '</span><span class="small muted">' + esc(step.finishedAt || step.startedAt || "") + "</span></div>";
+    }).join("");
+    var error = task.error ? '<p class="hint" style="color:#c0392b;margin-top:10px">失败原因：' + esc(task.error) + "</p>" : "";
+    var result = task.result
+      ? '<h3 style="margin:16px 0 6px">执行结果</h3><pre class="code-block small" style="white-space:pre-wrap">' + esc(JSON.stringify(task.result, null, 2)) + "</pre>"
+      : "";
+    var log = task.log
+      ? '<details style="margin-top:12px"><summary class="small muted" style="cursor:pointer">执行日志</summary>' +
+        '<pre class="code-block small" style="white-space:pre-wrap;max-height:260px;overflow:auto">' + esc(task.log) + "</pre></details>"
+      : "";
+    return '<div class="panel" style="margin-bottom:0">' +
+      '<div class="panel-head"><div><h2>' + esc(task.actionLabel) + "</h2>" +
+      '<p class="small muted">任务 ' + esc(task.id) + " · 提交人 " + esc(task.actor || "—") + " · " + esc(task.createdAt) + "</p></div>" +
+      C.badge(TASK_TEXT[task.status] || task.status, TASK_TONE[task.status] || "gray") + "</div>" +
+      steps + error + result + log + "</div>";
+  }
+
+  function taskRows(items) {
+    if (!items || !items.length) return '<p class="hint">暂无任务记录。</p>';
+    return '<table class="table"><thead><tr><th>任务</th><th>动作</th><th>状态</th><th>提交时间</th><th></th></tr></thead><tbody>' +
+      items.map(function (task) {
+        return "<tr><td class=\"mono small\">" + esc(task.id) + "</td><td>" + esc(task.actionLabel) +
+          '</td><td>' + C.badge(TASK_TEXT[task.status] || task.status, TASK_TONE[task.status] || "gray") +
+          '</td><td class="small muted">' + esc(task.createdAt) + '</td><td><button class="btn btn-ghost btn-sm" type="button" data-opact="task" data-taskid="' +
+          esc(task.id) + '">查看</button></td></tr>';
+      }).join("") + "</tbody></table>";
+  }
+
+  function trackTask(taskId, tab) {
+    var attempts = 0;
+    function tick() {
+      if (C.state.currentTab !== tab) return;
+      api().opsTask(taskId).then(function (res) {
+        if (!res.ok) {
+          if (++attempts < 3) setTimeout(tick, 2000);
+          return;
+        }
+        var task = res.data;
+        var box = document.getElementById("opsTaskDetail");
+        if (box) box.innerHTML = taskDetailHtml(task);
+        if (task.status === "SUCCEEDED" || task.status === "FAILED") {
+          C.toast(task.status === "SUCCEEDED" ? "任务完成：" + task.actionLabel : "任务失败，请查看详情", task.status === "SUCCEEDED" ? "success" : "error");
+          return;
+        }
+        setTimeout(tick, 1500);
+      });
+    }
+    setTimeout(tick, 800);
+  }
+
+  function bindOpsActions(handler) {
+    var dispatch = function (event) {
+      var el = event.target.closest("[data-opact]");
+      if (!el) return;
+      handler(el.getAttribute("data-opact"), el);
+    };
+    C.body().onclick = dispatch;
+    // 顶部操作栏位于 #consoleActions，console.js 只识别 data-hact，
+    // 这里补一个 data-opact 的监听；没有匹配元素时不影响原有按钮。
+    var bar = document.getElementById("consoleActions");
+    if (bar) bar.onclick = dispatch;
+  }
+
+  // ---------------------------------------------------------------- 主备服务器（真实状态）
   C.registry.servers = async function () {
-    C.setActions("");
-    var res = await api().opsStatus();
+    C.setActions([
+      '<button class="btn btn-ghost btn-sm" type="button" data-opact="refresh">' + C.icon("refresh") + "刷新状态</button>",
+      '<button class="btn btn-primary btn-sm" type="button" data-opact="switch-open">切换主备</button>'
+    ].join(""));
+
+    var res = await api().opsStatus(true);
     var d = res.ok ? res.data : null;
-    var db = d && d.database ? d.database : {};
+    if (!d) {
+      C.body().innerHTML = [
+        '<div class="panel"><div class="panel-head"><div><h2>主备拓扑</h2>',
+        "<p>运维服务不可达，页面无法读取数据库状态。</p></div></div>",
+        '<p class="hint" style="color:#c0392b">' + esc(res.message || "请求失败") + "</p>",
+        '<p class="hint">检查 dbops-service 是否启动：<span class="mono">docker compose -f compose.yaml -f compose.web.yaml ps dbops-service</span>，',
+        "以及 Nginx 的 <span class=\"mono\">/api/ops/</span> 路由是否已生效。</p>",
+        "</div>"
+      ].join("");
+      return;
+    }
+
+    var db = d.database || {};
+    var nodes = d.nodes || [];
+    var rep = d.replication || {};
+    var single = !rep.configured;
+    var nodeHtml = nodes.map(function (node) {
+      var roleText = node.role === "primary" ? "主节点" : (node.role === "standby" ? "备节点" : "角色未知");
+      var tone = node.status !== "online" ? "red" : (node.role === "primary" ? "green" : "blue");
+      return '<div style="border:1px solid #e3ebf3;border-radius:10px;padding:14px 16px;min-width:280px;flex:1">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
+        "<strong>" + esc(node.name) + "</strong>" + C.badge(roleText, tone) + "</div>" +
+        '<div class="small muted">地址：' + esc(node.host + ":" + node.port) + "</div>" +
+        '<div class="small muted">容器：<span class="mono">' + esc(node.container) + "</span></div>" +
+        '<div class="small muted">进程：' + (node.status === "online" ? "运行中" : "未运行") + " · 数据库状态：" + esc(node.dbState) + "</div>" +
+        (node.error ? '<div class="small" style="color:#c0392b;margin-top:6px">' + esc(node.error) + "</div>" : "") +
+        "</div>";
+    }).join("");
+
+    var replicationText = single ? "单实例（未配置备节点）" : (
+      rep.state === "STREAMING" ? "流复制正常" : (rep.state === "DEGRADED" ? "复制降级" : "复制状态未知"));
+    var lagText = rep.lagSeconds === null || rep.lagSeconds === undefined ? "—" : rep.lagSeconds + " 秒";
+
     C.body().innerHTML = [
       '<div class="panel"><div class="panel-head"><div><h2>主备拓扑</h2>',
-      "<p>该页面为预留接口，等待 E 的 dbops-service 接入后展示真实主备与复制延迟。</p></div></div>",
-      '  <div class="toolbar" style="flex-wrap:wrap;gap:18px">',
-      '    <span>当前节点：<b>primary</b>（单实例）</span>',
-      '    <span>数据库：<b>' + esc(db.database || "—") + "</b></span>",
-      '    <span>连接账号：<b>' + esc(db.databaseUser || "—") + "</b></span>",
-      '    <span>会话数：<b>' + esc(db.connections || "—") + "</b></span>",
-      "  </div>",
-      '  <div class="code-block small" style="white-space:pre-wrap;margin-top:12px">' + esc(db.version || "") + "</div>",
-      '  <p class="hint" style="margin-top:12px">接口约定：GET /api/catalog/ops/status 已返回 ',
-      '<span class="mono">' + esc(d ? d.status : "PENDING") + "</span>，",
-      "待 dbops-service 提供真实拓扑后替换 primary / standby / replicationLagSeconds 三个字段即可，前端不用改。</p>",
+      "<p>数据来自 dbops-service 的实时采集；采集时间 " + esc(d.collectedAt) + "，耗时 " + esc(d.durationMs) + " ms。</p></div>",
+      C.badge(databaseReady(db) ? "数据库在线" : "数据库异常", databaseReady(db) ? "green" : "red") + "</div>",
+      '<div class="toolbar" style="flex-wrap:wrap;gap:12px">',
+      '<div style="display:flex;gap:10px;flex-wrap:wrap;flex:1">' + (nodeHtml || '<p class="hint">未采集到节点信息</p>') + "</div>",
+      '<div style="border:1px solid #e3ebf3;border-radius:10px;padding:14px 16px;min-width:220px">',
+      "  <strong>复制状态</strong>",
+      '  <div style="margin-top:8px">' + C.badge(replicationText, single ? "gray" : (rep.state === "STREAMING" ? "green" : "red")) + "</div>",
+      '  <div class="small muted" style="margin-top:8px">复制延迟：<b>' + esc(lagText) + "</b></div>",
+      '  <div class="small muted">执行模式：' + esc((d.service || {}).execMode || "—") + "</div>",
+      "</div></div>",
+      "</div>",
+
+      '<div class="panel"><div class="panel-head"><div><h2>数据库连接</h2>',
+      "<p>连接信息由 dbops-service 通过 gsql 读取，不回传口令。</p></div></div>",
+      databaseReady(db)
+        ? '<div class="toolbar" style="flex-wrap:wrap;gap:22px">' +
+          "<span>数据库：<b>" + esc(db.database) + "</b></span>" +
+          "<span>账号：<b>" + esc(db.databaseUser) + "</b></span>" +
+          "<span>会话数：<b>" + esc(db.connections === null || db.connections === undefined ? "—" : db.connections) + "</b></span>" +
+          '<span class="small muted">' + esc(db.version || "") + "</span></div>"
+        : '<p class="hint" style="color:#c0392b">连接失败：' + esc(db.error || "未知原因") + "</p>",
+      "</div>",
+
+      '<div class="panel"><div class="panel-head"><div><h2>运维任务</h2>',
+      "<p>切换前需要在此确认；执行过程每 1.5 秒刷新一次。</p></div>",
+      '<span id="opsSwitchForm" hidden>' +
+      '  <span class="small muted" style="margin-right:8px">确认把业务切到备节点？</span>' +
+      '  <button class="btn btn-primary btn-sm" type="button" data-opact="switch-confirm">确认切换</button> ' +
+      '  <button class="btn btn-ghost btn-sm" type="button" data-opact="switch-cancel">取消</button>' +
+      "</span></div>",
+      '<div id="opsTaskDetail" style="margin-bottom:16px">' + taskDetailHtml(null) + "</div>",
+      '<div id="opsTaskList"><p class="hint">读取任务记录…</p></div>',
       "</div>"
     ].join("");
+
+    bindOpsActions(function (act, el) {
+      if (act === "refresh") { C.registry.servers(); return; }
+      if (act === "switch-open") {
+        if (single) { C.toast("当前是单实例部署，未配置备节点，不能切换", "warn"); return; }
+        var form = document.getElementById("opsSwitchForm");
+        if (form) form.hidden = false;
+        return;
+      }
+      if (act === "switch-cancel") {
+        var cancel = document.getElementById("opsSwitchForm");
+        if (cancel) cancel.hidden = true;
+        return;
+      }
+      if (act === "switch-confirm") {
+        var confirmBox = document.getElementById("opsSwitchForm");
+        if (confirmBox) confirmBox.hidden = true;
+        api().opsSwitchover().then(function (r) {
+          if (!r.ok) { C.toast("切换未提交：" + r.message, "error"); return; }
+          C.toast("切换任务已提交：" + r.data.id + "，正在执行", "success");
+          var detail = document.getElementById("opsTaskDetail");
+          if (detail) detail.innerHTML = taskDetailHtml(r.data);
+          trackTask(r.data.id, "servers");
+        });
+        return;
+      }
+      if (act === "task") {
+        api().opsTask(el.getAttribute("data-taskid")).then(function (r) {
+          if (!r.ok) { C.toast(r.message || "读取任务失败", "error"); return; }
+          var box = document.getElementById("opsTaskDetail");
+          if (box) box.innerHTML = taskDetailHtml(r.data);
+        });
+      }
+    });
+
+    api().opsTasks(8).then(function (r) {
+      var list = document.getElementById("opsTaskList");
+      if (!list) return;
+      list.innerHTML = r.ok ? taskRows(r.data.items) : '<p class="hint" style="color:#c0392b">任务记录读取失败：' + esc(r.message) + "</p>";
+    });
+  };
+
+  function databaseReady(db) {
+    return Boolean(db && db.reachable);
+  }
+
+  // ---------------------------------------------------------------- 备份与恢复（真实任务）
+  C.registry.backup = async function () {
+    C.setActions([
+      '<button class="btn btn-primary btn-sm" type="button" data-opact="backup">' + C.icon("db") + "立即备份</button>",
+      '<button class="btn btn-ghost btn-sm" type="button" data-opact="refresh">' + C.icon("refresh") + "刷新</button>"
+    ].join(""));
+
+    var res = await api().opsBackups();
+    var d = res.ok ? res.data : null;
+    if (!d) {
+      C.body().innerHTML = [
+        '<div class="panel"><div class="panel-head"><div><h2>备份与恢复</h2>',
+        "<p>运维服务不可达，无法读取备份清单。</p></div></div>",
+        '<p class="hint" style="color:#c0392b">' + esc(res.message || "请求失败") + "</p>",
+        "</div>"
+      ].join("");
+      return;
+    }
+
+    var items = d.items || [];
+    var table = items.length
+      ? '<table class="table"><thead><tr><th>归档文件</th><th>生成时间</th><th>大小</th><th>备注</th><th>SHA-256</th><th>操作</th></tr></thead><tbody>' +
+        items.map(function (item) {
+          return '<tr><td class="mono small">' + esc(item.backupId) + "</td>" +
+            '<td class="small muted">' + esc(item.createdAt) + "</td>" +
+            "<td>" + fmtBytes(item.sizeBytes) + "</td>" +
+            '<td class="small">' + esc(item.note || "—") + "</td>" +
+            '<td class="mono small">' + esc((item.sha256 || "").slice(0, 16)) + "…</td>" +
+            '<td><button class="btn btn-ghost btn-sm" type="button" data-opact="restore-open" data-backup="' + esc(item.backupId) + '">恢复到验证库</button></td></tr>';
+        }).join("") + "</tbody></table>"
+      : '<p class="hint">还没有备份。点右上角“立即备份”生成第一份 gs_dump 归档。</p>';
+
+    C.body().innerHTML = [
+      '<div class="panel"><div class="panel-head"><div><h2>备份与恢复</h2>',
+      "<p>归档为 gs_dump 自定义格式，落在 <span class=\"mono\">" + esc(d.backupDir || "/backup") + "</span>；共 " +
+      items.length + " 份，占用 " + fmtBytes(d.totalBytes) + "。</p></div>",
+      C.badge("数据库之外", "gray") + "</div>",
+      '<div id="opsBackupTable">' + table + "</div>",
+      '<div id="opsRestoreForm" hidden style="margin-top:16px;border:1px solid #f0c36d;background:#fffaf0;border-radius:10px;padding:14px 16px">' +
+      '  <strong>恢复确认</strong>' +
+      '  <p class="small muted" style="margin:6px 0">归档：<span class="mono" id="opsRestoreName">—</span>。只会写入以 ' +
+      esc("library_verify") + " 开头的验证库；同名的旧验证库会先被删除。</p>" +
+      '  <label class="small">目标库名 <input id="opsRestoreTarget" value="library_verify" style="margin-left:8px;padding:6px 8px;border:1px solid #d8e2ec;border-radius:6px;width:240px"></label>' +
+      '  <div style="margin-top:10px"><button class="btn btn-primary btn-sm" type="button" data-opact="restore-confirm">确认恢复</button> ' +
+      '  <button class="btn btn-ghost btn-sm" type="button" data-opact="restore-cancel">取消</button></div>' +
+      "</div>",
+      "</div>",
+
+      '<div class="panel"><div class="panel-head"><div><h2>备份 / 恢复任务</h2>',
+      "<p>任务记录保存在业务库之外，数据库异常时仍可查看。</p></div></div>",
+      '<div id="opsTaskDetail" style="margin-bottom:16px">' + taskDetailHtml(null) + "</div>",
+      '<div id="opsTaskList"><p class="hint">读取任务记录…</p></div>',
+      "</div>"
+    ].join("");
+
+    var pendingBackup = "";
+
+    function refreshTable() {
+      api().opsBackups().then(function (r2) {
+        var box = document.getElementById("opsBackupTable");
+        if (!box || !r2.ok) return;
+        var list = r2.data.items || [];
+        box.innerHTML = list.length
+          ? '<table class="table"><thead><tr><th>归档文件</th><th>生成时间</th><th>大小</th><th>备注</th><th>SHA-256</th><th>操作</th></tr></thead><tbody>' +
+            list.map(function (item) {
+              return '<tr><td class="mono small">' + esc(item.backupId) + "</td>" +
+                '<td class="small muted">' + esc(item.createdAt) + "</td>" +
+                "<td>" + fmtBytes(item.sizeBytes) + "</td>" +
+                '<td class="small">' + esc(item.note || "—") + "</td>" +
+                '<td class="mono small">' + esc((item.sha256 || "").slice(0, 16)) + "…</td>" +
+                '<td><button class="btn btn-ghost btn-sm" type="button" data-opact="restore-open" data-backup="' + esc(item.backupId) + '">恢复到验证库</button></td></tr>';
+            }).join("") + "</tbody></table>"
+          : '<p class="hint">还没有备份。</p>';
+      });
+    }
+
+    bindOpsActions(function (act, el) {
+      if (act === "refresh") { C.registry.backup(); return; }
+      if (act === "backup") {
+        api().opsCreateBackup("").then(function (r) {
+          if (!r.ok) { C.toast("备份未提交：" + r.message, "error"); return; }
+          C.toast("备份任务已提交：" + r.data.id, "success");
+          var detail = document.getElementById("opsTaskDetail");
+          if (detail) detail.innerHTML = taskDetailHtml(r.data);
+          trackTask(r.data.id, "backup");
+          setTimeout(refreshTable, 3000);
+        });
+        return;
+      }
+      if (act === "restore-open") {
+        pendingBackup = el.getAttribute("data-backup");
+        var form = document.getElementById("opsRestoreForm");
+        var name = document.getElementById("opsRestoreName");
+        if (name) name.textContent = pendingBackup;
+        if (form) form.hidden = false;
+        return;
+      }
+      if (act === "restore-cancel") {
+        var cancel = document.getElementById("opsRestoreForm");
+        if (cancel) cancel.hidden = true;
+        return;
+      }
+      if (act === "restore-confirm") {
+        var target = (document.getElementById("opsRestoreTarget") || {}).value || "library_verify";
+        var box = document.getElementById("opsRestoreForm");
+        if (box) box.hidden = true;
+        api().opsRestore(pendingBackup, target).then(function (r) {
+          if (!r.ok) { C.toast("恢复未提交：" + r.message, "error"); return; }
+          C.toast("恢复任务已提交：" + r.data.id, "success");
+          var detail = document.getElementById("opsTaskDetail");
+          if (detail) detail.innerHTML = taskDetailHtml(r.data);
+          trackTask(r.data.id, "backup");
+        });
+        return;
+      }
+      if (act === "task") {
+        api().opsTask(el.getAttribute("data-taskid")).then(function (r) {
+          if (!r.ok) { C.toast(r.message || "读取任务失败", "error"); return; }
+          var panel = document.getElementById("opsTaskDetail");
+          if (panel) panel.innerHTML = taskDetailHtml(r.data);
+        });
+      }
+    });
+
+    api().opsTasks(8).then(function (r) {
+      var list = document.getElementById("opsTaskList");
+      if (!list) return;
+      list.innerHTML = r.ok ? taskRows(r.data.items) : '<p class="hint" style="color:#c0392b">任务记录读取失败：' + esc(r.message) + "</p>";
+    });
   };
 
   // ---------------------------------------------------------------- 数据导入导出
@@ -448,24 +763,7 @@
     ].join("");
   };
 
-  // ---------------------------------------------------------------- 备份 / 审计（预留，避免继续展示编造数据）
-  C.registry.backup = async function () {
-    C.setActions("");
-    var res = await api().opsStatus();
-    var d = res.ok ? res.data : null;
-    C.body().innerHTML = [
-      '<div class="panel"><div class="panel-head"><div><h2>备份与恢复</h2>',
-      "<p>该页面为预留接口，等待 E 的 dbops-service 提供备份、恢复与校验能力。</p></div></div>",
-      '  <div class="toolbar" style="flex-wrap:wrap;gap:12px">',
-      C.badge("待接入", "gray"),
-      '    <span class="small muted">执行端：dbops-service（E）</span>',
-      "  </div>",
-      '  <p class="hint">数据库当前状态：' + esc(d && d.database ? d.database.database + " / " + d.database.databaseUser : "—") + "</p>",
-      '  <p class="hint">接入后此处展示：备份文件列表、执行结果、恢复验证对照。前端无需改动，只替换数据源。</p>',
-      "</div>"
-    ].join("");
-  };
-
+  // ---------------------------------------------------------------- 审计（预留）
   C.registry.audit = async function () {
     C.setActions("");
     C.body().innerHTML = [
