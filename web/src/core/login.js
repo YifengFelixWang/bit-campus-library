@@ -102,4 +102,9 @@ export async function submitRegister() {
   loginState.mode = "login";
   registerState.username = registerState.password = registerState.confirm = registerState.displayName = "";
   await submitLogin();
+  // 注册成功后把人送回首页：注册多从「全部图书」或页头进入，留在原页会以为什么都没发生
+  if (store.user) {
+    if (location.hash && location.hash !== "#home") location.hash = "#home";
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 }
