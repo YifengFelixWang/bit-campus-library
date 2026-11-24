@@ -46,6 +46,10 @@ export default {
     const ebookAvailable = computed(function () { return Boolean(ebook.value && ebook.value.available); });
     const ebookUrl = computed(function () { return ebook.value && ebook.value.url ? ebook.value.url : "#"; });
     const ebookFileName = computed(function () { return (ebook.value && ebook.value.fileName) || "电子书.pdf"; });
+    const ebookFormat = computed(function () {
+      const f = String((ebook.value && ebook.value.format) || "pdf").toLowerCase();
+      return f === "epub" ? "EPUB" : "PDF";
+    });
     const ebookSizeText = computed(function () {
       const n = Number(ebook.value && ebook.value.sizeBytes);
       if (!n) return "PDF";
@@ -128,7 +132,7 @@ export default {
     return {
       detailState, book, user, record, left, notOnShelf, shelfLabel,
       coverUrl, stockText, stockClass, reviews, myReview, returned, canWriteRating, canReview, score,
-      ebook, ebookLoading, ebookAvailable, ebookUrl, ebookFileName, ebookSizeText, canUploadEbook,
+      ebook, ebookLoading, ebookAvailable, ebookUrl, ebookFileName, ebookFormat, ebookSizeText, canUploadEbook,
       scoreLabel, reviewSummary, actionsDisabledText, fmtDate,
       close, borrow, giveBack, preview, loginToRead, writeReview, loginToReview,
       closePdfPreview
@@ -166,7 +170,7 @@ export default {
               <div><span>出版年</span><b>{{ book.year || "—" }}</b></div>
               <div><span>上架状态</span><b>{{ shelfLabel }}</b></div>
               <div><span>评分人数</span><b>{{ book.rating_count || 0 }}</b></div>
-              <div><span>电子书</span><b>{{ ebookLoading ? "读取中…" : (ebookAvailable ? "可下载 PDF" : "暂无 PDF") }}</b></div>
+              <div><span>电子书</span><b>{{ ebookLoading ? "读取中…" : (ebookAvailable ? ("可下载 " + ebookFormat) : "暂无电子书") }}</b></div>
             </div>
 
             <div class="bd-read" :class="{ locked: !ebookAvailable }" id="ebookCard">
@@ -175,9 +179,9 @@ export default {
                 <strong>电子书下载</strong>
                 <span v-if="ebookLoading">正在确认后端是否提供 PDF…</span>
                 <span v-else-if="ebookAvailable">{{ ebookFileName }} · {{ ebookSizeText }}</span>
-                <span v-else>后端暂无 PDF 版<template v-if="canUploadEbook">，可在控制台「图书管理」上传</template></span>
+                <span v-else>后端暂无电子书<template v-if="canUploadEbook">，可在控制台「图书管理」上传</template></span>
               </div>
-              <a v-if="ebookAvailable" class="btn btn-primary btn-sm" id="ebookDownload" :href="ebookUrl" download>下载 PDF</a>
+              <a v-if="ebookAvailable" class="btn btn-primary btn-sm" id="ebookDownload" :href="ebookUrl" download>下载 {{ ebookFormat }}</a>
             </div>
 
             <div class="bd-reviews">

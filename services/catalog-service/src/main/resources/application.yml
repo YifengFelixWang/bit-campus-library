@@ -4,6 +4,11 @@ server:
 spring:
   application:
     name: catalog-service
+  servlet:
+    multipart:
+      # 电子书最大 300 MB；默认单文件只有 1 MB，大一点的 PDF 会在容器内被拒绝
+      max-file-size: 300MB
+      max-request-size: 320MB
   # 数据源不再由 Spring Boot 自动配置：见 DataSourceConfig（三个账号 + 按角色路由）
 
 mybatis:
@@ -39,6 +44,8 @@ catalog:
   upload:
     # 封面落盘目录，需与前端静态目录 / Nginx 的 /covers/ 映射保持一致
     cover-dir: ${CATALOG_COVER_DIR:web/covers}
+    # 电子书落盘目录：云端挂 /data/ebooks（与 Nginx 的 /files 同一块盘）
+    ebook-dir: ${CATALOG_UPLOAD_EBOOK_DIR:web/ebooks}
 
 logging:
   level:

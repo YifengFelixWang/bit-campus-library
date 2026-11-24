@@ -374,7 +374,7 @@
       "  </div>",
       '  <div class="form-row three">',
       '    <label class="field"><span>分类 *</span><input id="bfCategory" list="bfCategories" value="' + esc(book ? book.category : "") + '" placeholder="选择或输入分类名"></label>',
-      '    <label class="field"><span>ISBN *</span><input id="bfIsbn" value="' + esc(book ? book.isbn : "") + '" placeholder="978-..."></label>',
+      '    <label class="field"><span>ISBN</span><input id="bfIsbn" value="' + esc(book ? book.isbn : "") + '" placeholder="可留空"></label>',
       '    <label class="field"><span>出版社</span><input id="bfPublisher" value="' + esc(book ? book.publisher : "") + '"></label>',
       "  </div>",
       '  <div class="form-row three">',
@@ -385,7 +385,7 @@
       '  <label class="field"><span>简介</span><textarea id="bfDesc" rows="3">' + esc(book ? book.desc : "") + "</textarea></label>",
       '  <div class="form-row">',
       '    <label class="field"><span>封面图片</span><input id="bfCover" type="file" accept="image/png,image/jpeg"><small>PNG / JPEG，最大 2 MB；保存后立即生效。</small></label>',
-      '    <label class="field"><span>电子书 PDF</span><input id="bfEbook" type="file" accept="application/pdf"><small>上传后所有读者都能下载；已有 PDF 会被覆盖，最大 80 MB。</small></label>',
+      '    <label class="field"><span>电子书 PDF</span><input id="bfEbook" type="file" accept=".pdf,.epub,application/pdf,application/epub+zip"><small>支持 PDF / EPUB，最大 300 MB；已有文件会被覆盖，上传后所有读者可下载。</small></label>',
       '    <div class="field"><span>预览</span><div id="bfPreview" style="min-height:96px">' +
         (currentCover ? '<img src="' + esc(currentCover) + '" alt="" style="width:72px;border-radius:8px">' : '<span class="hint">暂无封面</span>') +
         "</div></div>",
@@ -405,8 +405,9 @@
         var author = document.getElementById("bfAuthor").value.trim();
         var category = document.getElementById("bfCategory").value.trim();
         var isbn = document.getElementById("bfIsbn").value.trim();
-        if (!title || !author || !category || !isbn) {
-          C.toast("书名、作者、分类、ISBN 都不能为空", "error");
+        // ISBN 允许为空：内部资料、影印本常常没有正式 ISBN
+        if (!title || !author || !category) {
+          C.toast("书名、作者、分类不能为空", "error");
           return false;
         }
         var addCopies = Number(document.getElementById("bfCopies").value) || 0;
