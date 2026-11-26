@@ -36,6 +36,7 @@ public class BookController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) Boolean hasPdf,
             @RequestParam(required = false, defaultValue = "updatedAt") String sortBy,
             @RequestParam(required = false, defaultValue = "desc") String sortOrder,
             @RequestParam(required = false, defaultValue = "1") Integer page,
@@ -71,6 +72,7 @@ public class BookController {
             @RequestParam(required = false) Integer yearFrom,
             @RequestParam(required = false) Integer yearTo,
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) Boolean hasPdf,
             @RequestParam(required = false, defaultValue = "updatedAt") String sortBy,
             @RequestParam(required = false, defaultValue = "desc") String sortOrder,
             @RequestParam(required = false, defaultValue = "1") Integer page,
@@ -78,7 +80,7 @@ public class BookController {
             HttpServletRequest request) {
 
         BookMultiQuery q = BookMultiQuery.of(title, author, publisher, isbn, categoryId,
-                yearFrom, yearTo, status, sortBy, sortOrder, page, size);
+                yearFrom, yearTo, status, hasPdf, sortBy, sortOrder, page, size);
         MultiSearchResult result = searchService.searchMulti(q);
         return ResponseEntity.ok(ApiResponse.ok(result, requestId(request)));
     }

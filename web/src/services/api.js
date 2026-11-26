@@ -108,6 +108,7 @@ function mapBook(row, stats) {
     isbn: row.isbn,
     publisher: row.publisher || "",
     year: row.publishYear || null,
+    hasPdfSource: Boolean(row.hasPdfSource),
     summary: row.summary || "",
     desc: row.summary || "",
     total: total,
@@ -546,7 +547,7 @@ export const api = {
     const p = params || {};
     const qs = new URLSearchParams();
     ["title", "author", "publisher", "isbn", "categoryId", "yearFrom", "yearTo",
-      "status", "sortBy", "sortOrder", "page", "size"].forEach(function (key) {
+      "status", "hasPdf", "sortBy", "sortOrder", "page", "size"].forEach(function (key) {
       const v = p[key];
       if (v !== undefined && v !== null && v !== "") qs.set(key, v);
     });
@@ -783,6 +784,18 @@ export const api = {
 
   async opsTasks(limit) {
     return sendJson("/api/ops/tasks?limit=" + (limit || 20), "GET", null);
+  },
+
+  /** 借阅审计（loan.loan_audit，由 loan_audit_trigger 写入） */
+  async opsAudit(options) {
+    const opts = options || {};
+    const params = [];
+    if (opts.action && opts.action !== "all") params.push("action=" + encodeURIComponent(opts.action));
+    if (opts.days) params.push("days=" + Number(opts.days));
+    if (opts.q) params.push("q=" + encodeURIComponent(opts.q));
+    params.push("limit=" + Number(opts.limit || 40));
+    params.push("offset=" + Number(opts.offset || 0));
+    return sendJson("/api/ops/audit?" + params.join("&"), "GET", null);
   },
 
   async opsTask(id) {

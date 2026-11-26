@@ -179,7 +179,7 @@ export default {
                 <strong>电子书下载</strong>
                 <span v-if="ebookLoading">正在确认后端是否提供 PDF…</span>
                 <span v-else-if="ebookAvailable">{{ ebookFileName }} · {{ ebookSizeText }}</span>
-                <span v-else>后端暂无电子书<template v-if="canUploadEbook">，可在控制台「图书管理」上传</template></span>
+                <span v-else>后端暂无电子书<template v-if="book.hasPdfSource">（本地有 PDF 原文件，等待上传）</template><template v-else-if="canUploadEbook">，可在控制台「图书管理」上传</template></span>
               </div>
               <a v-if="ebookAvailable" class="btn btn-primary btn-sm" id="ebookDownload" :href="ebookUrl" download>下载 {{ ebookFormat }}</a>
             </div>

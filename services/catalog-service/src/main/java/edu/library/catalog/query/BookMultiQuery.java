@@ -30,6 +30,8 @@ public final class BookMultiQuery {
     private final Integer yearTo;
     /** null 表示上下架都要（"ALL"）；否则 ON_SHELF / OFF_SHELF */
     private final String status;
+    /** null 表示不限制；true/false 对应「本地有 PDF 原文件 / 没有」 */
+    private final Boolean hasPdfSource;
     private final String sortBy;
     private final String sortColumn;
     private final String orderDirection;
@@ -38,7 +40,7 @@ public final class BookMultiQuery {
     private final int offset;
 
     private BookMultiQuery(String title, String author, String publisher, String isbn, Long categoryId,
-                           Integer yearFrom, Integer yearTo, String status,
+                           Integer yearFrom, Integer yearTo, String status, Boolean hasPdfSource,
                            String sortBy, String sortColumn, String orderDirection,
                            int page, int size) {
         this.title = title;
@@ -49,6 +51,7 @@ public final class BookMultiQuery {
         this.yearFrom = yearFrom;
         this.yearTo = yearTo;
         this.status = status;
+        this.hasPdfSource = hasPdfSource;
         this.sortBy = sortBy;
         this.sortColumn = sortColumn;
         this.orderDirection = orderDirection;
@@ -58,7 +61,7 @@ public final class BookMultiQuery {
     }
 
     public static BookMultiQuery of(String title, String author, String publisher, String isbn,
-                                    Long categoryId, Integer yearFrom, Integer yearTo, String status,
+                                    Long categoryId, Integer yearFrom, Integer yearTo, String status, Boolean hasPdfSource,
                                     String sortBy, String sortOrder, Integer page, Integer size) {
 
         String t = text(title, "书名");
@@ -89,7 +92,7 @@ public final class BookMultiQuery {
         int pg = page == null || page < 1 ? 1 : page;
         int sz = size == null || size < 1 ? DEFAULT_SIZE : Math.min(size, MAX_SIZE);
 
-        return new BookMultiQuery(t, a, p, i, categoryId, from, to, st,
+        return new BookMultiQuery(t, a, p, i, categoryId, from, to, st, hasPdfSource,
                 sortField.apiName(), sortField.column(), dir, pg, sz);
     }
 
@@ -147,6 +150,10 @@ public final class BookMultiQuery {
 
     public String getStatus() {
         return status;
+    }
+
+    public Boolean getHasPdfSource() {
+        return hasPdfSource;
     }
 
     public String getSortBy() {

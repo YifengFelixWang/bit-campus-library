@@ -24,6 +24,7 @@
           WHERE ba2.book_id = b.book_id)                              AS author_names,
         b.publisher,
         b.publish_year,
+        b.has_pdf_source,
         b.summary,
         b.total_copies,
         (SELECT m.file_url
@@ -136,6 +137,14 @@
                               JOIN catalog.author am ON am.author_id = bam.author_id
                              WHERE bam.book_id = b.book_id
                                AND am.author_name ILIKE '%' || #{q.author} || '%')
+            </if>
+            <!-- 有 PDF = 已上传电子书，或本地有原文件；两者都没有才算「无 PDF」 -->
+            <if test="q.hasPdfSource != null">
+                AND (
+                    coalesce(b.has_pdf_source, FALSE)
+                    OR EXISTS (SELECT 1 FROM catalog.ebook e
+                                WHERE e.book_id = b.book_id AND e.deleted = FALSE)
+                ) = #{q.hasPdfSource}
             </if>
             <if test="q.yearFrom != null">
                 AND b.publish_year &gt;= #{q.yearFrom}

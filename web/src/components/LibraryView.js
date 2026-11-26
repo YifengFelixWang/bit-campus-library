@@ -28,6 +28,7 @@ export default {
       yearFrom: 0,
       yearTo: CURRENT_YEAR,
       status: DEFAULT_STATUS,
+      hasPdf: "",
       sortBy: "updatedAt",
       sortOrder: "desc"
     });
@@ -101,6 +102,7 @@ export default {
         yearFrom: Number(form.yearFrom) > 0 ? form.yearFrom : "",
         yearTo: Number(form.yearTo) < CURRENT_YEAR ? form.yearTo : "",
         status: form.status,
+        hasPdf: form.hasPdf,
         sortBy: form.sortBy,
         sortOrder: form.sortOrder,
         page: targetPage,
@@ -130,6 +132,11 @@ export default {
       run(target);
     }
 
+    function setPdfFilter(value) {
+      form.hasPdf = value;
+      run(1);
+    }
+
     function setCategory(name) {
       if (name === "全部") {
         form.categoryId = "";
@@ -148,6 +155,7 @@ export default {
       form.categoryId = "";
       form.yearFrom = 0;
       form.yearTo = CURRENT_YEAR;
+      form.hasPdf = "";
       form.status = DEFAULT_STATUS;
       form.sortBy = "updatedAt";
       form.sortOrder = "desc";
@@ -169,7 +177,7 @@ export default {
       store, currentYear: CURRENT_YEAR,
       form, result, loading, error, expanded, searched,
       categories, activeCategory, page, totalPages, pageList, conditionCount,
-      submit, goPage, setCategory, reset, togglePanel
+      submit, goPage, setCategory, setPdfFilter, reset, togglePanel
     };
   },
   template: `
@@ -283,6 +291,13 @@ export default {
                       :class="{ 'is-active': item === activeCategory }"
                       :data-category="item" @click="setCategory(item)">{{ item }}</button>
             </div>
+          </div>
+
+          <div class="filters pdf-filters" id="pdfFilters" role="group" aria-label="按是否带 PDF 原文件筛选">
+            <button type="button" class="chip" :class="{ 'is-active': form.hasPdf === '' }" @click="setPdfFilter('')">全部</button>
+            <button type="button" class="chip" :class="{ 'is-active': form.hasPdf === 'true' }" @click="setPdfFilter('true')">有 PDF</button>
+            <button type="button" class="chip" :class="{ 'is-active': form.hasPdf === 'false' }" @click="setPdfFilter('false')">无 PDF</button>
+            <span class="hint-inline">「有 PDF」= 已上传电子书或本地有原文件；「无 PDF」= 两者都没有</span>
           </div>
 
           <p v-if="error" class="query-error" id="bookQueryError">查询失败：{{ error }}</p>

@@ -21,6 +21,7 @@ public class BookRow {
     private String authorNames;
     private String publisher;
     private Integer publishYear;
+    private Boolean hasPdfSource;
     private String summary;
     private Integer totalCopies;
     private String coverUrl;
@@ -102,6 +103,10 @@ public class BookRow {
     public void setPublishYear(Integer publishYear) {
         this.publishYear = publishYear;
     }
+
+    public Boolean getHasPdfSource() { return hasPdfSource; }
+
+    public void setHasPdfSource(Boolean hasPdfSource) { this.hasPdfSource = hasPdfSource; }
 
     public String getSummary() {
         return summary;
